@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Imag
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import humanizeError from "@/utils/humanizeError";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -16,9 +16,6 @@ type PersonRow = {
   market_role: string;
   id_verification_status: string;
 };
-
-const isAuthSessionMissing = (message?: string | null) =>
-  (message ?? "").toLowerCase().includes("auth session missing");
 
 export default function PeopleConnect() {
   const { t } = useTheme();
@@ -41,20 +38,10 @@ export default function PeopleConnect() {
     let active = true;
 
     const bootstrap = async () => {
-      const { data, error } = await supabaseClient.auth.getUser();
+      const user = await getStoredUser();
       if (!active) return;
 
-      if (error) {
-        if (!isAuthSessionMissing(error.message)) {
-          Alert.alert("Auth Error", humanizeError(error, "Unable to verify your session."));
-        }
-        setUserId(null);
-        setPeople([]);
-        setLoading(false);
-        return;
-      }
-
-      const uid = data.user?.id ?? null;
+      const uid = user?.id ?? null;
       setUserId(uid);
       if (!uid) {
         setPeople([]);
@@ -62,19 +49,13 @@ export default function PeopleConnect() {
         return;
       }
 
-      const { data: rows, error: rowsError } = await supabaseClient.rpc("rpc_search_people", {
-        p_user_id: uid,
-        p_query: "",
-      });
-
-      if (rowsError) {
-        Alert.alert("People Error", humanizeError(rowsError, "Unable to load people right now."));
-        setLoading(false);
-        return;
+      try {
+        const rows = await api.get<PersonRow[]>(`/api/people/search?q=`);
+        if (active) setPeople(rows ?? []);
+      } catch {
+        if (active) Alert.alert("People Error", "Unable to load people right now.");
       }
-
-      setPeople((rows ?? []) as PersonRow[]);
-      setLoading(false);
+      if (active) setLoading(false);
     };
 
     bootstrap();
@@ -88,18 +69,12 @@ export default function PeopleConnect() {
 
     const runSearch = async () => {
       if (!userId) return;
-      const { data, error } = await supabaseClient.rpc("rpc_search_people", {
-        p_user_id: userId,
-        p_query: query,
-      });
-
-      if (!active) return;
-      if (error) {
-        Alert.alert("Search Error", humanizeError(error, "Search is unavailable right now."));
-        return;
+      try {
+        const data = await api.get<PersonRow[]>(`/api/people/search?q=${encodeURIComponent(query)}`);
+        if (active) setPeople(data ?? []);
+      } catch {
+        if (active) Alert.alert("Search Error", "Search is unavailable right now.");
       }
-
-      setPeople((data ?? []) as PersonRow[]);
     };
 
     runSearch();
@@ -113,10 +88,7 @@ export default function PeopleConnect() {
     setConnectingTo(person.user_id);
 
     try {
-      const { data, error } = await supabaseClient.rpc("rpc_open_direct_conversation", {
-        p_other_user_id: person.user_id,
-      });
-      if (error) throw new Error(error.message);
+      const data = await api.post<string>("/api/conversations/direct", { other_user_id: person.user_id });
       if (!data) throw new Error("Unable to open conversation.");
 
       router.push({

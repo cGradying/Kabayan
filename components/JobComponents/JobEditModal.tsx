@@ -12,7 +12,7 @@ import {
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api } from "@/utils/api";
 import { geocodeAddress } from "@/utils/googleGeocode";
 import humanizeError from "@/utils/humanizeError";
 
@@ -111,23 +111,19 @@ export default function JobEditModal({ visible, job, onClose, onSaved }: JobEdit
         .map((item) => item.trim())
         .filter(Boolean);
 
-      const { data, error: updateError } = await supabaseClient
-        .rpc("rpc_update_job", {
-          p_job_id: job.id,
-          p_title: trimmedTitle,
-          p_description: trimmedDescription,
-          p_requirements: requirementsArray,
-          p_budget_min: min,
-          p_budget_max: max,
-          p_location_label: trimmedLocation,
-          p_latitude: latitude,
-          p_longitude: longitude,
-          p_is_urgent: isUrgent,
-          p_status: job.status,
-        })
-        .maybeSingle();
+      const data = await api.put<any>(`/api/jobs/${job.id}`, {
+        title: trimmedTitle,
+        description: trimmedDescription,
+        requirements: requirementsArray,
+        budget_min: min,
+        budget_max: max,
+        location_label: trimmedLocation,
+        latitude,
+        longitude,
+        is_urgent: isUrgent,
+        status: job.status,
+      });
 
-      if (updateError) throw new Error(updateError.message);
       if (!data) throw new Error("No updated job returned.");
 
       onSaved({

@@ -14,7 +14,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import AppFlashMessage from "@/components/CustomComponents/AppFlashMessage";
 import useFlashMessage from "@/hooks/useFlashMessage";
 import humanizeError from "@/utils/humanizeError";
@@ -49,9 +49,6 @@ const emptyForm: FormState = {
   marketRole: "buyer",
 };
 
-const isAuthSessionMissing = (message?: string | null) =>
-  (message ?? "").toLowerCase().includes("auth session missing");
-
 const isValidBirthDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -72,18 +69,8 @@ export default function EditProfile() {
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: authData, error: authError } = await supabaseClient.auth.getUser();
-      if (authError) {
-        if (!isAuthSessionMissing(authError.message)) {
-          throw new Error(authError.message);
-        }
-        setUserId(null);
-        setForm(emptyForm);
-        setAvatarUri(null);
-        return;
-      }
-
-      const uid = authData.user?.id ?? null;
+      const user = await getStoredUser();
+      const uid = user?.id ?? null;
       setUserId(uid);
 
       if (!uid) {
@@ -92,11 +79,7 @@ export default function EditProfile() {
         return;
       }
 
-      const { data, error } = await supabaseClient
-        .rpc("rpc_get_profile_for_edit", { p_user_id: uid })
-        .maybeSingle();
-
-      if (error) throw new Error(error.message);
+      const data = await api.get<any>(`/api/profiles/${uid}`);
 
       const row = (data ?? null) as EditProfileRow | null;
       setForm({
@@ -118,13 +101,6 @@ export default function EditProfile() {
 
   useEffect(() => {
     loadProfile();
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange(() => {
-      loadProfile();
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, [loadProfile]);
 
   useFocusEffect(
@@ -173,20 +149,15 @@ export default function EditProfile() {
 
     setSaving(true);
     try {
-      const { data, error } = await supabaseClient
-        .rpc("rpc_update_profile", {
-          p_user_id: userId,
-          p_display_name: trimmedName,
-          p_bio: form.bio.trim() || null,
-          p_location_label: form.location.trim() || null,
-          p_avatar_url: avatarUri,
-          p_job_role: form.jobRole,
-          p_market_role: form.marketRole,
-          p_birth_date: trimmedBirthDate || null,
-        })
-        .maybeSingle();
-
-      if (error) throw new Error(error.message);
+      const data = await api.put<any>(`/api/profiles/${userId}`, {
+        display_name: trimmedName,
+        bio: form.bio.trim() || null,
+        location_label: form.location.trim() || null,
+        avatar_url: avatarUri,
+        job_role: form.jobRole,
+        market_role: form.marketRole,
+        birth_date: trimmedBirthDate || null,
+      });
 
       const row = (data ?? null) as EditProfileRow | null;
       if (row) {

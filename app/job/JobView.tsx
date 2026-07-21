@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useEffect, useMemo, useState } from "react";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import AppFlashMessage from "@/components/CustomComponents/AppFlashMessage";
 import useFlashMessage from "@/hooks/useFlashMessage";
 import JobEditModal from "@/components/JobComponents/JobEditModal";
@@ -51,12 +51,16 @@ export default function JobView() {
     const fetchJob = async () => {
       if (!jobId) return;
       setLoading(true);
-      const { data } = await supabaseClient.rpc("rpc_get_job_by_id", { p_job_id: jobId }).maybeSingle();
-      if (data) setJob(data);
+      try {
+        const data = await api.get<any>(`/api/jobs/${jobId}`);
+        if (data) setJob(data);
+      } catch {
+        // silently fail
+      }
       setLoading(false);
     };
     fetchJob();
-    supabaseClient.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+    getStoredUser().then((user) => setCurrentUserId(user?.id ?? null));
   }, [jobId]);
 
   useEffect(() => {
@@ -66,20 +70,14 @@ export default function JobView() {
         return;
       }
 
-      const { data, error } = await supabaseClient
-        .from("job_applications")
-        .select("id")
-        .eq("job_id", job.id)
-        .eq("applicant_id", currentUserId)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
+      try {
+        const data = await api.get<any>(`/api/jobs/${job.id}/applicants`);
+        const apps = Array.isArray(data) ? data : [];
+        const mine = apps.find((a: any) => a.applicant_id === currentUserId);
+        setHasApplied(Boolean(mine));
+      } catch {
         setHasApplied(false);
-        return;
       }
-
-      setHasApplied(Boolean(data?.id));
     };
 
     fetchApplicationState();
@@ -92,17 +90,13 @@ export default function JobView() {
         return;
       }
 
-      const { data, error } = await supabaseClient.rpc("rpc_get_employer_job_applicants", {
-        p_employer_id: currentUserId,
-      });
-
-      if (error) {
+      try {
+        const data = await api.get<any[]>(`/api/jobs/${job.id}/applicants`);
+        const scopedRows = ((data ?? []) as ApplicantPreviewRow[]).filter((row: any) => row.job_id === job.id);
+        setApplicants(scopedRows);
+      } catch {
         setApplicants([]);
-        return;
       }
-
-      const scopedRows = ((data ?? []) as ApplicantPreviewRow[]).filter((row: any) => row.job_id === job.id);
-      setApplicants(scopedRows);
     };
 
     fetchApplicants();
@@ -118,12 +112,11 @@ export default function JobView() {
 
     setOpeningChat(true);
     try {
-      const { data, error } = await supabaseClient.rpc("rpc_open_job_conversation_with_user", {
-        p_job_id: job.id,
-        p_other_user_id: job.employer_id,
+      const data = await api.post<string>("/api/conversations/job", {
+        job_id: job.id,
+        employer_id: job.employer_id,
       });
 
-      if (error) throw new Error(error.message);
       if (!data) throw new Error("Unable to open conversation.");
 
       router.push({
@@ -151,16 +144,10 @@ export default function JobView() {
 
     setApplying(true);
     try {
-      const { error } = await supabaseClient.rpc("rpc_apply_to_job", {
-        p_job_id: job.id,
-        p_cover_letter: null,
-        p_expected_rate: null,
-        p_resume_uri: null,
-        p_answers: {},
-        p_availability_note: null,
+      await api.post(`/api/jobs/${job.id}/apply`, {
+        cover_letter: null,
+        expected_rate: null,
       });
-
-      if (error) throw new Error(error.message);
 
       showFlashMessage("Application sent", "Your application was submitted to the employer.", "success");
       setHasApplied(true);
@@ -177,15 +164,7 @@ export default function JobView() {
     const nextStatus = job.status === "open" ? "closed" : "open";
     setUpdatingStatus(true);
     try {
-      const { data, error } = await supabaseClient
-        .rpc("rpc_set_job_status", {
-          p_job_id: job.id,
-          p_status: nextStatus,
-        })
-        .maybeSingle();
-
-      if (error) throw new Error(error.message);
-      if (!data) throw new Error("No updated job status returned.");
+      const data = await api.patch<any>(`/api/jobs/${job.id}/status`, { status: nextStatus });
 
       setJob((prev: any) => (prev ? { ...prev, status: data.status } : prev));
       showFlashMessage(

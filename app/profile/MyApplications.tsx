@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "rea
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api } from "@/utils/api";
 import humanizeError from "@/utils/humanizeError";
 
 type MyApplicationRow = {
@@ -26,8 +26,7 @@ export default function MyApplications() {
   const loadApplications = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabaseClient.rpc("rpc_get_my_job_applications");
-      if (error) throw new Error(error.message);
+      const data = await api.get<any[]>("/api/applications");
       setRows((data ?? []) as MyApplicationRow[]);
     } catch (err) {
       console.warn(humanizeError(err, "Unable to load your applications."));

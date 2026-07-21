@@ -4,7 +4,7 @@ import { LegendList } from "@legendapp/list";
 import { Feather } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import CustomModal from "@/components/CustomComponents/CustomModalComponent";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -38,39 +38,37 @@ export default function Inbox() {
     }
 
     setLoading(true);
-    const { data, error } = await supabaseClient.rpc("rpc_get_conversation_threads_for_user", {
-      p_user_id: resolvedUserId,
-    });
+    try {
+      const data = await api.get<any[]>("/api/conversations");
+      const rows = data ?? [];
 
-    if (error || !data) {
-      setLoading(false);
-      return;
+      const mapped: Conversation[] = rows.map((row: any) => ({
+        roomId: row.room_id,
+        lastMsg: row.last_message ?? "",
+        lastSenderId: row.last_sender_id ?? null,
+        lastTime: row.last_time ?? null,
+        otherUserId: row.other_user_id ?? null,
+        otherDisplayName: row.other_display_name ?? "Unknown User",
+        otherAvatarUrl: row.other_avatar_url ?? null,
+        jobId: row.job_id ?? null,
+        jobTitle: row.job_title ?? null,
+      }));
+
+      setThreads(mapped);
+    } catch {
+      // silently fail
     }
-
-    const mapped: Conversation[] = (data ?? []).map((row: any) => ({
-      roomId: row.room_id,
-      lastMsg: row.last_message ?? "",
-      lastSenderId: row.last_sender_id ?? null,
-      lastTime: row.last_time ?? null,
-      otherUserId: row.other_user_id ?? null,
-      otherDisplayName: row.other_display_name ?? "Unknown User",
-      otherAvatarUrl: row.other_avatar_url ?? null,
-      jobId: row.job_id ?? null,
-      jobTitle: row.job_title ?? null,
-    }));
-
-    setThreads(mapped);
     setLoading(false);
   }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      supabaseClient.auth.getUser().then(({ data }) => {
+      getStoredUser().then((user) => {
         if (!active) return;
-        const uid = data.user?.id ?? null;
+        const uid = user?.id ?? null;
         setUserId(uid);
-        setAuthModalVisible(!data.user);
+        setAuthModalVisible(!uid);
         if (uid) {
           fetchThreads(uid);
         } else {
@@ -86,20 +84,7 @@ export default function Inbox() {
   useEffect(() => {
     if (!userId) return;
     fetchThreads();
-    const channel = supabaseClient
-      .channel("messages:list")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        () => {
-          fetchThreads();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(channel);
-    };
+    // Realtime channels removed — polling replaces realtime
   }, [userId, fetchThreads]);
 
   const filteredThreads = useMemo(() => {

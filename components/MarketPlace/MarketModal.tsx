@@ -3,7 +3,7 @@ import { Modal, SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollVie
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import { useImagePicker } from "@/context/ImagePicker";
 import { geocodeAddress } from "@/utils/googleGeocode";
 import humanizeError from "@/utils/humanizeError";
@@ -41,16 +41,20 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
     let cancelled = false;
 
     const preloadStoreName = async () => {
-      const { data: authData } = await supabaseClient.auth.getUser();
-      const vendorId = authData.user?.id;
+      const user = await getStoredUser();
+      const vendorId = user?.id;
       if (!vendorId) return;
 
-      const { data } = await supabaseClient.rpc("rpc_get_marketplace_listings_feed");
-      if (cancelled || !Array.isArray(data)) return;
+      try {
+        const data = await api.get<any[]>("/api/marketplace");
+        if (cancelled || !Array.isArray(data)) return;
 
-      const ownListing = data.find((row: any) => row.vendor_id === vendorId && typeof row.store_name === "string");
-      if (ownListing?.store_name && !cancelled) {
-        setStoreName((current) => current.trim() || ownListing.store_name);
+        const ownListing = data.find((row: any) => row.vendor_id === vendorId && typeof row.store_name === "string");
+        if (ownListing?.store_name && !cancelled) {
+          setStoreName((current) => current.trim() || ownListing.store_name);
+        }
+      } catch {
+        // silently fail
       }
     };
 
@@ -109,10 +113,8 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
     setError(null);
 
     try {
-      const { data: authData, error: authError } = await supabaseClient.auth.getUser();
-      if (authError) throw new Error(authError.message);
-
-      const vendorId = authData.user?.id;
+      const user = await getStoredUser();
+      const vendorId = user?.id;
       if (!vendorId) {
         throw new Error("You must be signed in to publish a store item.");
       }
@@ -137,21 +139,19 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
         .filter(Boolean)
         .join("\n");
 
-      const { error: insertError } = await supabaseClient.rpc("rpc_create_marketplace_listing", {
-        p_vendor_id: vendorId,
-        p_store_name: trimmedStoreName,
-        p_name: trimmedName,
-        p_description: composedDescription || null,
-        p_category: trimmedCategory,
-        p_price: priceValue,
-        p_location_label: trimmedLocation,
-        p_latitude: latitude,
-        p_longitude: longitude,
-        p_image_url: image?.uri ?? null,
-        p_is_open: true,
+      await api.post("/api/marketplace", {
+        vendor_id: vendorId,
+        store_name: trimmedStoreName,
+        name: trimmedName,
+        description: composedDescription || null,
+        category: trimmedCategory,
+        price: priceValue,
+        location_label: trimmedLocation,
+        latitude,
+        longitude,
+        image_url: image?.uri ?? null,
+        is_open: true,
       });
-
-      if (insertError) throw new Error(insertError.message);
 
       clearForm();
       onCreated?.();

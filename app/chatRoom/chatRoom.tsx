@@ -12,7 +12,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import {useSafeAreaInsets} from "react-native-safe-area-context"
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import AppFlashMessage from "@/components/CustomComponents/AppFlashMessage";
 import useFlashMessage from "@/hooks/useFlashMessage";
 import humanizeError from "@/utils/humanizeError";
@@ -36,38 +36,25 @@ export default function ChatRoomLayout() {
   const { flashMessage, showFlashMessage, hideFlashMessage } = useFlashMessage();
 
   useEffect(() => {
-    supabaseClient.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+    getStoredUser().then((user) => setUserId(user?.id ?? null));
   }, []);
 
   useEffect(() => {
     let isMounted = true;
     const loadMessages = async () => {
-      const { data, error } = await supabaseClient
-        .rpc("rpc_get_messages_by_room", { p_room_id: roomId });
-      if (!error && isMounted && data) {
-        setMessages(data.map(mapMessage));
+      try {
+        const data = await api.get<any[]>(`/api/messages/${roomId}`);
+        if (isMounted && data) {
+          setMessages(data.map(mapMessage));
+        }
+      } catch {
+        // silently fail
       }
     };
     loadMessages();
-
-    const channel = supabaseClient
-      .channel(`room:${roomId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` },
-        (payload) => {
-          const incoming = mapMessage(payload.new as any);
-          setMessages((prev) => {
-            if (prev.some((msg) => msg.id === incoming.id)) return prev;
-            return [...prev, incoming];
-          });
-        }
-      )
-      .subscribe();
-
+    // Realtime channels removed — polling replaces realtime
     return () => {
       isMounted = false;
-      supabaseClient.removeChannel(channel);
     };
   }, [roomId]);
 
@@ -86,28 +73,28 @@ export default function ChatRoomLayout() {
     }
     setSending(true);
     setMessage("");
-    const { data: newMessageId, error } = await supabaseClient.rpc("rpc_send_message", {
-      p_room_id: roomId,
-      p_sender_id: userId,
-      p_content: text,
-    });
-    if (error) {
-      // roll back local clear if needed
-      setMessage(text);
-      showFlashMessage("Send failed", humanizeError(error, "Unable to send message."), "error");
-    } else if (newMessageId) {
-      setMessages((prev) => {
-        if (prev.some((msg) => msg.id === newMessageId)) return prev;
-        return [
-          ...prev,
-          {
-            id: newMessageId,
-            text,
-            senderId: userId,
-            createdAt: new Date().toISOString(),
-          },
-        ];
+    try {
+      const newMessageId = await api.post<string>("/api/messages", {
+        room_id: roomId,
+        content: text,
       });
+      if (newMessageId) {
+        setMessages((prev) => {
+          if (prev.some((msg) => msg.id === newMessageId)) return prev;
+          return [
+            ...prev,
+            {
+              id: newMessageId,
+              text,
+              senderId: userId,
+              createdAt: new Date().toISOString(),
+            },
+          ];
+        });
+      }
+    } catch {
+      setMessage(text);
+      showFlashMessage("Send failed", "Unable to send message.", "error");
     }
     setSending(false);
   };

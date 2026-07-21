@@ -12,7 +12,7 @@ import {
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api } from "@/utils/api";
 import { geocodeAddress } from "@/utils/googleGeocode";
 import humanizeError from "@/utils/humanizeError";
 
@@ -105,23 +105,19 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
         // Keep fallback coordinates.
       }
 
-      const { data, error: updateError } = await supabaseClient
-        .rpc("rpc_update_marketplace_listing", {
-          p_listing_id: listing.id,
-          p_store_name: trimmedStoreName,
-          p_name: trimmedName,
-          p_description: trimmedDescription || null,
-          p_category: trimmedCategory,
-          p_price: numericPrice,
-          p_location_label: trimmedLocation,
-          p_latitude: latitude,
-          p_longitude: longitude,
-          p_image_url: trimmedImageUrl || null,
-          p_is_open: listing.is_open,
-        })
-        .maybeSingle();
+      const data = await api.put<any>(`/api/marketplace/${listing.id}`, {
+        store_name: trimmedStoreName,
+        name: trimmedName,
+        description: trimmedDescription || null,
+        category: trimmedCategory,
+        price: numericPrice,
+        location_label: trimmedLocation,
+        latitude,
+        longitude,
+        image_url: trimmedImageUrl || null,
+        is_open: listing.is_open,
+      });
 
-      if (updateError) throw new Error(updateError.message);
       if (!data) throw new Error("No updated listing returned.");
 
       onSaved({

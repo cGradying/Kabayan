@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, Image, ActivityIndicator, TouchableOpacity, ScrollView } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,19 +26,21 @@ export default function ProfileView() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const { data: userData } = await supabaseClient.auth.getUser();
-      const uid = userData.user?.id;
+      const user = await getStoredUser();
+      const uid = user?.id;
       if (!uid) {
-        setLoading(false);
+        if (active) setLoading(false);
         return;
       }
-      const { data } = await supabaseClient
-        .rpc("rpc_get_profile_detail", { p_user_id: uid })
-        .maybeSingle();
-      if (active) {
-        setProfile(data ?? null);
-        setLoading(false);
+      try {
+        const data = await api.get<any>(`/api/profiles/${uid}`);
+        if (active) {
+          setProfile(data ?? null);
+        }
+      } catch {
+        // silently fail
       }
+      if (active) setLoading(false);
     };
     load();
     return () => {

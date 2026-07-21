@@ -40,6 +40,9 @@ app-example
 .env 
 taskList.txt
 
+# backend
+backend/node_modules
+
 # generated native folders
 /ios
 /android

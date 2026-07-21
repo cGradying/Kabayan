@@ -3,7 +3,7 @@ import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvo
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import { geocodeAddress } from "@/utils/googleGeocode";
 import humanizeError from "@/utils/humanizeError";
 
@@ -79,10 +79,8 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
     setError(null);
 
     try {
-      const { data: authData, error: authError } = await supabaseClient.auth.getUser();
-      if (authError) throw new Error(authError.message);
-
-      const employerId = authData.user?.id;
+      const user = await getStoredUser();
+      const employerId = user?.id;
       if (!employerId) {
         throw new Error("You must be signed in to post a job.");
       }
@@ -107,23 +105,19 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
             .filter(Boolean)
         : [];
 
-      const { data, error: insertError } = await supabaseClient
-        .rpc("rpc_create_job", {
-          p_employer_id: employerId,
-          p_title: trimmedTitle,
-          p_description: trimmedDescription,
-          p_location_label: trimmedLocation,
-          p_latitude: latitude,
-          p_longitude: longitude,
-          p_budget_min: min,
-          p_budget_max: max,
-          p_requirements: requirementsArray,
-          p_status: "open",
-          p_is_urgent: false,
-        })
-        .maybeSingle();
-
-      if (insertError) throw new Error(insertError.message);
+      const data = await api.post<any>("/api/jobs", {
+        employer_id: employerId,
+        title: trimmedTitle,
+        description: trimmedDescription,
+        location_label: trimmedLocation,
+        latitude,
+        longitude,
+        budget_min: min,
+        budget_max: max,
+        requirements: requirementsArray,
+        status: "open",
+        is_urgent: false,
+      });
 
       clearForm();
       onCreated?.(data as unknown as CreatedJob | undefined);

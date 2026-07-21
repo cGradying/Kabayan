@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Image } fr
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTheme } from '@/hooks/useTheme';
-import { supabaseClient } from '@/utils/supabase';
+import { api, getStoredUser, signOut } from '@/utils/api';
 import AppFlashMessage from "@/components/CustomComponents/AppFlashMessage";
 import useFlashMessage from "@/hooks/useFlashMessage";
 import humanizeError from "@/utils/humanizeError";
@@ -18,9 +18,6 @@ type ProfileData = {
   market_role: string;
   location_label: string | null;
 };
-
-const isAuthSessionMissing = (message?: string | null) =>
-  (message ?? "").toLowerCase().includes("auth session missing");
 
 const toTitleCase = (value?: string | null) =>
   (value ?? "")
@@ -44,18 +41,8 @@ export default function Profile () {
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-      if (userError) {
-        if (!isAuthSessionMissing(userError.message)) {
-          throw new Error(userError.message);
-        }
-        setProfile(null);
-        setJobsCount(0);
-        setListingsCount(0);
-        return;
-      }
-
-      const uid = userData.user?.id;
+      const user = await getStoredUser();
+      const uid = user?.id;
       if (!uid) {
         setProfile(null);
         setJobsCount(0);
@@ -63,19 +50,15 @@ export default function Profile () {
         return;
       }
 
-      const [profileRes, jobsRes, listingsRes] = await Promise.all([
-        supabaseClient.rpc("rpc_get_drawer_profile", { p_user_id: uid }).maybeSingle(),
-        supabaseClient.rpc("rpc_get_jobs_count_by_employer", { p_employer_id: uid }),
-        supabaseClient.rpc("rpc_get_listings_count_by_vendor", { p_vendor_id: uid }),
+      const [profileData, jobsData, listingsData] = await Promise.all([
+        api.get<any>(`/api/profiles/${uid}/drawer`).catch(() => null),
+        api.get<any>("/api/counts/jobs").catch(() => null),
+        api.get<any>("/api/counts/listings").catch(() => null),
       ]);
 
-      if (profileRes.error) throw new Error(profileRes.error.message);
-      if (jobsRes.error) throw new Error(jobsRes.error.message);
-      if (listingsRes.error) throw new Error(listingsRes.error.message);
-
-      setProfile(profileRes.data as ProfileData | null);
-      setJobsCount(Number(jobsRes.data ?? 0));
-      setListingsCount(Number(listingsRes.data ?? 0));
+      setProfile(profileData as ProfileData | null);
+      setJobsCount(Number(jobsData ?? 0));
+      setListingsCount(Number(listingsData ?? 0));
     } catch (err) {
       const message = humanizeError(err, "Failed to load profile.");
       showFlashMessage("Profile Error", message, "error");
@@ -85,22 +68,7 @@ export default function Profile () {
   }, [showFlashMessage]);
 
   useEffect(() => {
-    let mounted = true;
-
-    const run = async () => {
-      if (!mounted) return;
-      await loadProfile();
-    };
-
-    run();
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange(() => {
-      run();
-    });
-
-    return () => {
-      mounted = false;
-      authListener.subscription.unsubscribe();
-    };
+    loadProfile();
   }, [loadProfile]);
 
   useFocusEffect(
@@ -113,8 +81,7 @@ export default function Profile () {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      const { error } = await supabaseClient.auth.signOut();
-      if (error) throw new Error(error.message);
+      await signOut();
       router.replace("/AuthenticationPage");
     } catch (err) {
       const message = humanizeError(err, "Unable to sign out.");

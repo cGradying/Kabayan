@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 import MarketModal from '@/components/MarketPlace/MarketModal';
 import MarketEditModal from '@/components/MarketPlace/MarketEditModal';
 import EntityHeroBanner from '@/components/CustomComponents/EntityHeroBanner';
-import { supabaseClient } from '@/utils/supabase';
+import { api, getStoredUser } from '@/utils/api';
 import AppFlashMessage from '@/components/CustomComponents/AppFlashMessage';
 import useFlashMessage from '@/hooks/useFlashMessage';
 import humanizeError from '@/utils/humanizeError';
@@ -106,35 +106,30 @@ export default function MarketPlaceView() {
 
   const loadListings = useCallback(async () => {
     setLoadingListings(true);
-    const { data, error } = await supabaseClient.rpc("rpc_get_marketplace_listings_feed");
-    if (error) {
-      showFlashMessage("Marketplace Error", humanizeError(error, "Unable to load marketplace listings."), "error");
-      setLoadingListings(false);
-      return;
+    try {
+      const data = await api.get<any[]>("/api/marketplace");
+      const normalized = (data ?? []).map(normalizeListing);
+      setListings(normalized);
+      setSelectedId((prev) => {
+        const requestedId = typeof params.id === "string" ? params.id : null;
+        if (requestedId && normalized.some((item) => item.id === requestedId)) return requestedId;
+        if (prev && normalized.some((item) => item.id === prev)) return prev;
+        return normalized[0]?.id ?? null;
+      });
+    } catch {
+      showFlashMessage("Marketplace Error", "Unable to load marketplace listings.", "error");
     }
-
-    const normalized = (data ?? []).map(normalizeListing);
-    setListings(normalized);
-    setSelectedId((prev) => {
-      const requestedId = typeof params.id === "string" ? params.id : null;
-      if (requestedId && normalized.some((item) => item.id === requestedId)) return requestedId;
-      if (prev && normalized.some((item) => item.id === prev)) return prev;
-      return normalized[0]?.id ?? null;
-    });
     setLoadingListings(false);
   }, [params.id, showFlashMessage]);
 
   const loadReviews = useCallback(async (listingId: string) => {
     setLoadingReviews(true);
-    const { data, error } = await supabaseClient.rpc("rpc_get_marketplace_reviews", {
-      p_listing_id: listingId,
-    });
-    if (error) {
-      showFlashMessage("Reviews Error", humanizeError(error, "Unable to load reviews."), "error");
-      setLoadingReviews(false);
-      return;
+    try {
+      const data = await api.get<any[]>(`/api/marketplace/${listingId}/reviews`);
+      setReviews((data ?? []).map(normalizeReview));
+    } catch {
+      showFlashMessage("Reviews Error", "Unable to load reviews.", "error");
     }
-    setReviews((data ?? []).map(normalizeReview));
     setLoadingReviews(false);
   }, [showFlashMessage]);
 
@@ -143,16 +138,9 @@ export default function MarketPlaceView() {
   }, [loadListings]);
 
   useEffect(() => {
-    supabaseClient.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id ?? null);
+    getStoredUser().then((user) => {
+      setCurrentUserId(user?.id ?? null);
     });
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      setCurrentUserId(session?.user?.id ?? null);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, []);
 
   useEffect(() => {
@@ -215,12 +203,8 @@ export default function MarketPlaceView() {
   const isOwner = Boolean(currentUserId && featured && featured.vendor_id === currentUserId);
 
   const handleOpenReviewModal = async () => {
-    const { data, error } = await supabaseClient.auth.getUser();
-    if (error) {
-      showFlashMessage("Auth Error", humanizeError(error, "Unable to verify your session."), "error");
-      return;
-    }
-    if (!data.user) {
+    const user = await getStoredUser();
+    if (!user) {
       showFlashMessage("Sign in required", "Please sign in before writing a review.", "warning");
       return;
     }
@@ -231,13 +215,8 @@ export default function MarketPlaceView() {
   const handleOpenOrderModal = async () => {
     if (!featured || isOwner) return;
 
-    const { data, error } = await supabaseClient.auth.getUser();
-    if (error) {
-      showFlashMessage("Auth Error", humanizeError(error, "Unable to verify your session."), "error");
-      return;
-    }
-
-    if (!data.user) {
+    const user = await getStoredUser();
+    if (!user) {
       showFlashMessage("Sign in required", "Please sign in before placing an order.", "warning");
       return;
     }
@@ -258,15 +237,10 @@ export default function MarketPlaceView() {
 
     try {
       const targetListingId = featured.id;
-      const { data, error } = await supabaseClient
-        .rpc("rpc_create_marketplace_review", {
-          p_listing_id: targetListingId,
-          p_rating: rating,
-          p_comment: reviewComment.trim() || null,
-        })
-        .maybeSingle();
-
-      if (error) throw new Error(error.message);
+      const data = await api.post<any>(`/api/marketplace/${targetListingId}/reviews`, {
+        rating,
+        comment: reviewComment.trim() || null,
+      });
 
       setReviewModalVisible(false);
       setReviewRating(5);
@@ -302,14 +276,7 @@ export default function MarketPlaceView() {
     const nextIsOpen = !featured.is_open;
     setUpdatingOpenState(true);
     try {
-      const { data, error } = await supabaseClient
-        .rpc("rpc_set_marketplace_listing_open_state", {
-          p_listing_id: featured.id,
-          p_is_open: nextIsOpen,
-        })
-        .maybeSingle();
-
-      if (error) throw new Error(error.message);
+      const data = await api.patch<any>(`/api/marketplace/${featured.id}/status`, { is_open: nextIsOpen });
       const resolvedOpen = typeof data?.is_open === "boolean" ? data.is_open : nextIsOpen;
       setListings((prev) =>
         prev.map((item) =>
@@ -348,13 +315,7 @@ export default function MarketPlaceView() {
           onPress: async () => {
             setDeletingStore(true);
             try {
-              const { data, error } = await supabaseClient
-                .rpc("rpc_delete_marketplace_store", {
-                  p_store_name: featured.store_name,
-                })
-                .maybeSingle();
-
-              if (error) throw new Error(error.message);
+              const data = await api.delete<any>(`/api/marketplace/${featured.id}`);
 
               const normalizedStoreName = featured.store_name.trim().toLowerCase();
               setListings((prev) =>
@@ -398,17 +359,12 @@ export default function MarketPlaceView() {
 
     setSubmittingOrder(true);
     try {
-      const { data, error } = await supabaseClient
-        .rpc("rpc_create_marketplace_order", {
-          p_listing_id: featured.id,
-          p_quantity: quantityValue,
-          p_delivery_mode: deliveryMode,
-          p_delivery_address: deliveryMode === "delivery" ? deliveryAddress.trim() : null,
-          p_notes: orderNotes.trim() || null,
-        })
-        .maybeSingle();
-
-      if (error) throw new Error(error.message);
+      const data = await api.post<any>(`/api/marketplace/${featured.id}/orders`, {
+        quantity: quantityValue,
+        delivery_mode: deliveryMode,
+        delivery_address: deliveryMode === "delivery" ? deliveryAddress.trim() : null,
+        notes: orderNotes.trim() || null,
+      });
 
       setOrderModalVisible(false);
       setOrderQuantity("1");

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { geocodeAddress } from "@/utils/googleGeocode";
-import { supabaseClient } from "@/utils/supabase";
+import { api } from "@/utils/api";
 
 const DEFAULT_COORDINATE: [number, number] = [120.9842, 14.5995];
 
@@ -39,31 +39,35 @@ export default function CustomMapView() {
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
 
   const loadMapPoints = useCallback(async () => {
-    const { data, error } = await supabaseClient.rpc("rpc_get_map_entities");
-    if (error || !Array.isArray(data)) {
+    try {
+      const data = await api.get<any[]>("/api/entities");
+      if (!Array.isArray(data)) {
+        setMapPoints([]);
+        return;
+      }
+
+      const normalized = data
+        .map((row: any) => {
+          const latitude = Number(row.latitude);
+          const longitude = Number(row.longitude);
+          if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+          return {
+            id: `${row.entity_type}:${row.entity_id}`,
+            kind: row.entity_type === "job" ? "job" : "listing",
+            title: row.title ?? (row.entity_type === "job" ? "Job" : "Store item"),
+            subtitle: row.subtitle ?? null,
+            locationLabel: row.location_label ?? "Pinned location",
+            coordinate: [longitude, latitude] as [number, number],
+            isOpen: Boolean(row.is_open),
+            price: row.price == null ? null : Number(row.price),
+          } satisfies MapPoint;
+        })
+        .filter(Boolean) as MapPoint[];
+
+      setMapPoints(normalized);
+    } catch {
       setMapPoints([]);
-      return;
     }
-
-    const normalized = data
-      .map((row: any) => {
-        const latitude = Number(row.latitude);
-        const longitude = Number(row.longitude);
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-        return {
-          id: `${row.entity_type}:${row.entity_id}`,
-          kind: row.entity_type === "job" ? "job" : "listing",
-          title: row.title ?? (row.entity_type === "job" ? "Job" : "Store item"),
-          subtitle: row.subtitle ?? null,
-          locationLabel: row.location_label ?? "Pinned location",
-          coordinate: [longitude, latitude] as [number, number],
-          isOpen: Boolean(row.is_open),
-          price: row.price == null ? null : Number(row.price),
-        } satisfies MapPoint;
-      })
-      .filter(Boolean) as MapPoint[];
-
-    setMapPoints(normalized);
   }, []);
 
   const handleLocationSelected = useCallback((coords: [number, number], label: string) => {

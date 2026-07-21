@@ -16,7 +16,7 @@ import { Calendar, fromDateId, toDateId } from "@marceloterreiro/flash-calendar"
 import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import AppFlashMessage from "@/components/CustomComponents/AppFlashMessage";
 import useFlashMessage from "@/hooks/useFlashMessage";
 import humanizeError from "@/utils/humanizeError";
@@ -79,16 +79,8 @@ export default function Register() {
   const bootstrap = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabaseClient.auth.getUser();
-      if (error) {
-        if (!isAuthSessionMissing(error.message)) {
-          throw new Error(error.message);
-        }
-        setUserId(null);
-        return;
-      }
-
-      setUserId(data.user?.id ?? null);
+      const user = await getStoredUser();
+      setUserId(user?.id ?? null);
     } catch (err) {
       const message = humanizeError(err, "Unable to load account.");
       showFlashMessage("Verification Error", message, "error");
@@ -99,13 +91,6 @@ export default function Register() {
 
   useEffect(() => {
     bootstrap();
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange(() => {
-      bootstrap();
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, [bootstrap]);
 
   const pickValidId = async () => {
@@ -156,14 +141,13 @@ export default function Register() {
 
     setSubmitting(true);
     try {
-      const { error } = await supabaseClient.rpc("rpc_submit_verification", {
-        p_first_name: trimmedFirst,
-        p_last_name: trimmedLast,
-        p_id_photo_uri: validId.uri,
-        p_resume_uri: resume?.uri ?? null,
-        p_birth_date: trimmedBirthDate || null,
+      await api.post(`/api/profiles/${userId}/verify`, {
+        first_name: trimmedFirst,
+        last_name: trimmedLast,
+        id_photo_uri: validId.uri,
+        resume_uri: resume?.uri ?? null,
+        birth_date: trimmedBirthDate || null,
       });
-      if (error) throw new Error(error.message);
 
       showFlashMessage("Submitted", "Your verification request is now pending review.", "success");
       setTimeout(() => {

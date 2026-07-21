@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api } from "@/utils/api";
 import JobModal from "@/components/JobComponents/JobModal";
 import CustomSearchComponent from "@/components/CustomComponents/CustomSearchComponent";
 
@@ -30,8 +30,12 @@ export default function Jobs() {
 
   const loadJobs = async () => {
     setLoading(true);
-    const { data, error } = await supabaseClient.rpc("rpc_get_jobs");
-    if (!error && data) setJobs(data);
+    try {
+      const data = await api.get<any[]>("/api/jobs");
+      setJobs(data);
+    } catch {
+      // silently fail
+    }
     setLoading(false);
   };
 

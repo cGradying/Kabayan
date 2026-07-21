@@ -1,84 +1,41 @@
 import { RegisterFormType } from "@/schema/loginSchema";
-import { supabaseClient } from "@/utils/supabase";
+import { signIn, signUp, signOut } from "@/utils/api";
 import { SubmitHandler } from "react-hook-form";
 import { useState } from "react";
-import { AuthError } from "@supabase/supabase-js";
-
-
-type supabaseError = AuthError | null
 
 export default function useAccount ()  {
     const [data, setData] = useState<any>()
-    const [error, setError] = useState<supabaseError>(null)
+    const [error, setError] = useState<string | null>(null)
 
     const SignInWithPassword: SubmitHandler<RegisterFormType> = async ({email, password} : RegisterFormType) => {
     try {
-        const {data, error} = await supabaseClient.auth.signInWithPassword({email, password}) 
-        if (error) {
-        setError(error)
-        return
-        }
-        setData(data)
+        const result = await signIn(email, password)
+        setData(result)
         setError(null)
-    } catch (err) {
-        setError(err as AuthError )
+    } catch (err: any) {
+        setError(err.message || "Sign in failed")
     } 
     }
 
     const SignUpWithEmailAndPassword: SubmitHandler<RegisterFormType> = async ({email, password} : RegisterFormType) => {
         try {
-        const {data, error} = await supabaseClient.auth.signUp({email, password}) 
-        if (error) {
-        setError(error)
-        return
-        }
-        setData(data)
+        const result = await signUp(email, password)
+        setData(result)
         setError(null)
-        } catch (err) {
-        setError(err as AuthError )
-        } 
-    }
-
-    const ResetEmailPassword: SubmitHandler<RegisterFormType> = async ({email} : RegisterFormType) => {
-        try {
-        const {data, error} = await supabaseClient.auth.resetPasswordForEmail(email) 
-        if (error) {
-        setError(error)
-        return
-        }
-        setData(data)
-        setError(null)
-        } catch (err) {
-        setError(err as AuthError )
+        } catch (err: any) {
+        setError(err.message || "Sign up failed")
         } 
     }
 
     const SignOut : SubmitHandler<RegisterFormType> = async () => {
         try {
-        const { error} = await supabaseClient.auth.signOut() 
-        if (error) {
-        setError(error)
-        return
-        }
-        } catch (err) {
-        setError(err as AuthError )
+        await signOut()
+        setData(null)
+        setError(null)
+        } catch (err: any) {
+        setError(err.message || "Sign out failed")
         } 
     }
 
-    const Resend : SubmitHandler<RegisterFormType> = async ({email } : RegisterFormType) => {
-        try {
-        const { error} = await supabaseClient.auth.resend({
-            type : "signup",
-            email, 
-        }) 
-        if (error) {
-        setError(error)
-        return
-        }
-        } catch (err) {
-        setError(err as AuthError )
-        } 
-    }
-
-    return {Resend,setData, setError, SignOut, ResetEmailPassword,SignUpWithEmailAndPassword, SignInWithPassword, data, error}
+    return {setData, setError, SignOut, SignUpWithEmailAndPassword, SignInWithPassword, data, error}
 }

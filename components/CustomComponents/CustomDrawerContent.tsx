@@ -4,9 +4,7 @@ import { DrawerContentScrollView } from "@react-navigation/drawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
-import { supabaseClient } from "@/utils/supabase";
-import humanizeError from "@/utils/humanizeError";
-
+import { api, getStoredUser, signOut } from "@/utils/api";
 type DrawerProfile = {
   user_id: string;
   display_name: string | null;
@@ -27,9 +25,6 @@ type DrawerItemConfig = {
   hidden?: boolean;
 };
 
-const isAuthSessionMissing = (message?: string | null) =>
-  (message ?? "").toLowerCase().includes("auth session missing");
-
 export default function CustomDrawerContent(props: any) {
   const inset = useSafeAreaInsets();
   const router = useRouter();
@@ -41,21 +36,8 @@ export default function CustomDrawerContent(props: any) {
   const [listingsCount, setListingsCount] = useState(0);
 
   const loadDrawerData = useCallback(async () => {
-    const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+    const user = await getStoredUser();
 
-    if (authError) {
-      if (isAuthSessionMissing(authError.message)) {
-        setCurrentUserId(null);
-        setEmail(null);
-        setProfile(null);
-        setApplicantCount(0);
-        setListingsCount(0);
-        return;
-      }
-      throw new Error(authError.message);
-    }
-
-    const user = authData.user;
     if (!user) {
       setCurrentUserId(null);
       setEmail(null);
@@ -68,19 +50,19 @@ export default function CustomDrawerContent(props: any) {
     setCurrentUserId(user.id);
     setEmail(user.email ?? null);
 
-    const [profileRes, applicantsRes, listingsRes] = await Promise.all([
-      supabaseClient.rpc("rpc_get_drawer_profile", { p_user_id: user.id }).maybeSingle(),
-      supabaseClient.rpc("rpc_get_employer_job_applicants", { p_employer_id: user.id }),
-      supabaseClient.rpc("rpc_get_listings_count_by_vendor", { p_vendor_id: user.id }),
-    ]);
+    try {
+      const [profileData, applicantsData, listingsData] = await Promise.all([
+        api.get<any>(`/api/profiles/${user.id}/drawer`),
+        api.get<any[]>("/api/applications"),
+        api.get<number>("/api/counts/listings"),
+      ]);
 
-    if (profileRes.error) throw new Error(profileRes.error.message);
-    if (applicantsRes.error) throw new Error(applicantsRes.error.message);
-    if (listingsRes.error) throw new Error(listingsRes.error.message);
-
-    setProfile((profileRes.data as DrawerProfile | null) ?? null);
-    setApplicantCount(Array.isArray(applicantsRes.data) ? applicantsRes.data.length : 0);
-    setListingsCount(Number(listingsRes.data ?? 0));
+      setProfile((profileData as DrawerProfile | null) ?? null);
+      setApplicantCount(Array.isArray(applicantsData) ? applicantsData.length : 0);
+      setListingsCount(Number(listingsData ?? 0));
+    } catch {
+      throw new Error("Failed to load drawer data");
+    }
   }, []);
 
   useEffect(() => {
@@ -91,20 +73,6 @@ export default function CustomDrawerContent(props: any) {
       setApplicantCount(0);
       setListingsCount(0);
     });
-
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange(() => {
-      loadDrawerData().catch(() => {
-        setCurrentUserId(null);
-        setEmail(null);
-        setProfile(null);
-        setApplicantCount(0);
-        setListingsCount(0);
-      });
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, [loadDrawerData]);
 
   const closeAndNavigate = useCallback(
@@ -116,15 +84,13 @@ export default function CustomDrawerContent(props: any) {
   );
 
   const handleSignOut = useCallback(async () => {
-    const { error } = await supabaseClient.auth.signOut();
-    if (!error) {
+    try {
+      await signOut();
       props.navigation.closeDrawer();
       router.replace("/AuthenticationPage");
-      return;
+    } catch {
+      console.warn("Unable to sign out.");
     }
-
-    const fallbackMessage = humanizeError(error, "Unable to sign out.");
-    console.warn(fallbackMessage);
   }, [props.navigation, router]);
 
   const initials =

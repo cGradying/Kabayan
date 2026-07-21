@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather, FontAwesome5, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import CustomMapComponents from "@/components/CustomComponents/CustomMapComponents";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api } from "@/utils/api";
 
 type JobRow = {
   id: string;
@@ -33,9 +33,11 @@ export default function Home() {
 
   const loadLatestJobs = async () => {
     setLoadingJobs(true);
-    const { data, error } = await supabaseClient.rpc("rpc_get_jobs");
-    if (!error && data) {
-      setJobs(data as JobRow[]);
+    try {
+      const data = await api.get<JobRow[]>("/api/jobs");
+      setJobs(data);
+    } catch {
+      // silently fail — data will remain empty
     }
     setLoadingJobs(false);
   };

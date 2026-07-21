@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Ima
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import humanizeError from "@/utils/humanizeError";
 
 type ApplicantRow = {
@@ -21,9 +21,6 @@ type ApplicantRow = {
   resume_uri: string | null;
 };
 
-const isAuthSessionMissing = (message?: string | null) =>
-  (message ?? "").toLowerCase().includes("auth session missing");
-
 export default function JobApplicants() {
   const { t } = useTheme();
   const router = useRouter();
@@ -37,19 +34,8 @@ export default function JobApplicants() {
     let active = true;
     try {
       setLoading(true);
-      const { data: authData, error: authError } = await supabaseClient.auth.getUser();
-      if (authError) {
-        if (!isAuthSessionMissing(authError.message)) {
-          throw new Error(authError.message);
-        }
-        if (active) {
-          setRows([]);
-          setLoading(false);
-        }
-        return;
-      }
-
-      const employerId = authData.user?.id;
+      const user = await getStoredUser();
+      const employerId = user?.id;
       if (!employerId) {
         if (active) {
           setRows([]);
@@ -58,11 +44,7 @@ export default function JobApplicants() {
         return;
       }
 
-      const { data, error } = await supabaseClient.rpc("rpc_get_employer_job_applicants", {
-        p_employer_id: employerId,
-      });
-
-      if (error) throw new Error(error.message);
+      const data = await api.get<any[]>("/api/applications");
 
       if (active) {
         const nextRows = (data ?? []) as ApplicantRow[];
@@ -108,11 +90,10 @@ export default function JobApplicants() {
 
     setOpeningChatFor(row.application_id);
     try {
-      const { data, error } = await supabaseClient.rpc("rpc_open_job_conversation_with_user", {
-        p_job_id: row.job_id,
-        p_other_user_id: row.applicant_id,
+      const data = await api.post<string>("/api/conversations/job", {
+        job_id: row.job_id,
+        employer_id: row.applicant_id,
       });
-      if (error) throw new Error(error.message);
       if (!data) throw new Error("Unable to open conversation.");
 
       router.push({
@@ -136,14 +117,7 @@ export default function JobApplicants() {
 
     setUpdatingApplicationId(row.application_id);
     try {
-      const { data, error } = await supabaseClient
-        .rpc("rpc_set_job_application_status", {
-          p_application_id: row.application_id,
-          p_status: status,
-        })
-        .maybeSingle();
-
-      if (error) throw new Error(error.message);
+      const data = await api.patch<any>(`/api/applications/${row.application_id}/status`, { status });
 
       setRows((prev) =>
         prev.map((item) =>

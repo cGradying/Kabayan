@@ -4,7 +4,7 @@ import CustomSearchBarComponent from "@/components/CustomComponents/CustomSearch
 import { LegendList } from '@legendapp/list';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
-import { supabaseClient } from '@/utils/supabase';
+import { api } from '@/utils/api';
 import { useRouter } from 'expo-router';
 
 const CATEGORIES = ['All', 'Street Food', 'Kakanin', 'Ulam', 'Desserts', 'Other'];
@@ -62,8 +62,12 @@ export default function MarketPlace() {
 
   const loadListings = async () => {
     setLoading(true);
-    const { data } = await supabaseClient.rpc("rpc_get_marketplace_listings_feed");
-    setListings((data ?? []).map(normalizeListing));
+    try {
+      const data = await api.get<any[]>("/api/marketplace");
+      setListings((data ?? []).map(normalizeListing));
+    } catch {
+      // silently fail
+    }
     setLoading(false);
   };
 

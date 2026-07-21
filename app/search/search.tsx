@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomSearchComponent from "@/components/CustomComponents/CustomSearchComponent";
 import { useTheme } from "@/hooks/useTheme";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type SearchCategory = "All" | "People" | "Jobs" | "Marketplace";
@@ -89,18 +89,22 @@ export default function SearchScreen() {
 
   const loadJobs = useCallback(async () => {
     setLoadingJobs(true);
-    const { data, error } = await supabaseClient.rpc("rpc_get_jobs");
-    if (!error && data) {
-      setJobs(data as JobRow[]);
+    try {
+      const data = await api.get<JobRow[]>("/api/jobs");
+      setJobs(data ?? []);
+    } catch {
+      // silently fail
     }
     setLoadingJobs(false);
   }, []);
 
   const loadMarketplace = useCallback(async () => {
     setLoadingListings(true);
-    const { data, error } = await supabaseClient.rpc("rpc_get_marketplace_listings_feed");
-    if (!error && data) {
-      setListings((data as any[]).map(normalizeListing));
+    try {
+      const data = await api.get<any[]>("/api/marketplace");
+      setListings((data ?? []).map(normalizeListing));
+    } catch {
+      // silently fail
     }
     setLoadingListings(false);
   }, []);
@@ -108,8 +112,8 @@ export default function SearchScreen() {
   const loadPeople = useCallback(async () => {
     setLoadingPeople(true);
 
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-    const uid = userError ? null : userData.user?.id ?? null;
+    const user = await getStoredUser();
+    const uid = user?.id ?? null;
 
     if (!uid) {
       setHasSession(false);
@@ -119,13 +123,11 @@ export default function SearchScreen() {
     }
 
     setHasSession(true);
-    const { data, error } = await supabaseClient.rpc("rpc_search_people", {
-      p_user_id: uid,
-      p_query: "",
-    });
-
-    if (!error && data) {
-      setPeople(data as PersonRow[]);
+    try {
+      const data = await api.get<PersonRow[]>("/api/people/search?q=");
+      setPeople(data ?? []);
+    } catch {
+      // silently fail
     }
 
     setLoadingPeople(false);
@@ -135,14 +137,6 @@ export default function SearchScreen() {
     loadJobs();
     loadMarketplace();
     loadPeople();
-
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange(() => {
-      loadPeople();
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, [loadJobs, loadMarketplace, loadPeople]);
 
   const query = search.trim().toLowerCase();

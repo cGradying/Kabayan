@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { supabaseClient } from "@/utils/supabase";
+import { api, getStoredUser } from "@/utils/api";
 
 type JobRow = {
   id: string;
@@ -42,19 +42,21 @@ const toNumber = (value: number | string | null | undefined, fallback = 0) => {
 };
 
 export async function loadAssistantContext(): Promise<AssistantContext> {
-  const [{ data: jobsData }, { data: listingsData }, authRes] = await Promise.all([
-    supabaseClient.rpc("rpc_get_jobs"),
-    supabaseClient.rpc("rpc_get_marketplace_listings_feed"),
-    supabaseClient.auth.getUser(),
+  const [jobsData, listingsData, user] = await Promise.all([
+    api.get<any[]>("/api/jobs").catch(() => []),
+    api.get<any[]>("/api/marketplace").catch(() => []),
+    getStoredUser(),
   ]);
 
   let userLocation: string | null = null;
-  const userId = authRes.data.user?.id ?? null;
+  const userId = user?.id ?? null;
   if (userId) {
-    const { data: profile } = await supabaseClient
-      .rpc("rpc_get_drawer_profile", { p_user_id: userId })
-      .maybeSingle();
-    userLocation = (profile as { location_label?: string | null } | null)?.location_label ?? null;
+    try {
+      const profile = await api.get<any>(`/api/profiles/${userId}/drawer`);
+      userLocation = (profile as { location_label?: string | null } | null)?.location_label ?? null;
+    } catch {
+      // silently fail
+    }
   }
 
   return {
