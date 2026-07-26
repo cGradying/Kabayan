@@ -151,10 +151,13 @@ export default function JobEditModal({ visible, job, onClose, onSaved }: JobEdit
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
-        style={{ flex: 1, justifyContent: "flex-end", paddingBottom: insets.bottom }}
+        className="flex-1 justify-end"
       >
-        <View className="flex-1 bg-black/50 justify-end">
+        <View style={{ paddingBottom: insets.bottom }} className="flex-1 bg-black/50 justify-end">
           <View className={`max-h-[85%] rounded-t-[30px] px-6 pt-6 pb-4 ${t.bgCard}`}>
+            <View className="items-center mb-3">
+              <View className={`w-10 h-1 rounded-full ${t.isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`} />
+            </View>
             <View className="flex-row items-center justify-between mb-4">
               <Text className={`text-xl font-black ${t.text}`}>Edit Job</Text>
               <TouchableOpacity onPress={onClose}>
@@ -174,6 +177,7 @@ export default function JobEditModal({ visible, job, onClose, onSaved }: JobEdit
                 onChangeText={setTitle}
                 placeholder="Master plumber needed"
                 icon="briefcase"
+                t={t}
               />
               <Field
                 label="Location"
@@ -181,32 +185,36 @@ export default function JobEditModal({ visible, job, onClose, onSaved }: JobEdit
                 onChangeText={setLocation}
                 placeholder="City or address"
                 icon="map-pin"
+                t={t}
               />
               <View className="mb-4">
-                <Text className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Budget (PHP)</Text>
-                <View className="flex-row gap-2">
-                  <View className="flex-1 h-12 px-3 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center">
+                <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>
+                  Budget (PHP)
+                </Text>
+                <View className="flex-row gap-3">
+                  <View className={`flex-1 h-14 px-4 rounded-2xl border ${t.border} ${t.bgSurface} flex-row items-center`}>
                     <TextInput
                       value={budgetMin}
                       onChangeText={setBudgetMin}
                       placeholder="Min"
                       keyboardType="numeric"
-                      className="flex-1 text-slate-900 font-semibold"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
+                      className={`flex-1 font-semibold ${t.text}`}
                     />
                   </View>
-                  <View className="flex-1 h-12 px-3 rounded-2xl border border-slate-200 bg-slate-50 flex-row items-center">
+                  <View className={`flex-1 h-14 px-4 rounded-2xl border ${t.border} ${t.bgSurface} flex-row items-center`}>
                     <TextInput
                       value={budgetMax}
                       onChangeText={setBudgetMax}
                       placeholder="Max"
                       keyboardType="numeric"
-                      className="flex-1 text-slate-900 font-semibold"
-                      placeholderTextColor="#94A3B8"
+                      placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
+                      className={`flex-1 font-semibold ${t.text}`}
                     />
                   </View>
                 </View>
               </View>
+
               <Field
                 label="Description"
                 value={description}
@@ -214,6 +222,7 @@ export default function JobEditModal({ visible, job, onClose, onSaved }: JobEdit
                 placeholder="Describe tasks, schedule, and scope"
                 icon="file-text"
                 multiline
+                t={t}
               />
               <Field
                 label="Requirements"
@@ -221,27 +230,36 @@ export default function JobEditModal({ visible, job, onClose, onSaved }: JobEdit
                 onChangeText={setRequirements}
                 placeholder="comma separated"
                 icon="check-square"
+                t={t}
               />
 
               <TouchableOpacity
                 onPress={() => setIsUrgent((prev) => !prev)}
-                className={`mb-3 h-12 px-4 rounded-2xl border ${isUrgent ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"} flex-row items-center justify-between`}
+                className={`mb-3 h-12 px-4 rounded-2xl border flex-row items-center justify-between ${
+                  isUrgent
+                    ? 'border-red-400 bg-red-500/10'
+                    : `${t.border} ${t.bgSurface}`
+                }`}
               >
                 <View className="flex-row items-center">
-                  <Feather name="alert-triangle" size={16} color={isUrgent ? "#DC2626" : "#64748B"} />
-                  <Text className={`ml-2 text-xs font-black uppercase tracking-widest ${isUrgent ? "text-red-600" : "text-slate-600"}`}>
+                  <Feather name="alert-triangle" size={16} color={isUrgent ? "#EF4444" : t.icon} />
+                  <Text className={`ml-2 text-xs font-black uppercase tracking-widest ${isUrgent ? "text-red-500" : t.textMuted}`}>
                     {isUrgent ? "Urgent job enabled" : "Mark as urgent"}
                   </Text>
                 </View>
-                <Ionicons name={isUrgent ? "checkmark-circle" : "ellipse-outline"} size={18} color={isUrgent ? "#DC2626" : "#94A3B8"} />
+                <Ionicons name={isUrgent ? "checkmark-circle" : "ellipse-outline"} size={18} color={isUrgent ? "#EF4444" : t.icon} />
               </TouchableOpacity>
 
-              {error ? <Text className="text-xs font-semibold text-red-600">{error}</Text> : null}
+              {error ? (
+                <View className="mt-3 p-3 rounded-2xl bg-red-500/10 border border-red-400/30">
+                  <Text className="text-red-500 text-xs font-semibold">{error}</Text>
+                </View>
+              ) : null}
 
               <TouchableOpacity
                 onPress={handleSave}
                 disabled={saving}
-                className={`mt-5 h-12 rounded-2xl items-center justify-center ${saving ? "bg-blue-400" : "bg-blue-600"}`}
+                className={`mt-5 h-14 rounded-2xl items-center justify-center shadow-lg shadow-blue-500/30 ${saving ? "bg-blue-400" : "bg-blue-600"}`}
               >
                 <Text className="text-white text-xs font-black uppercase tracking-widest">
                   {saving ? "Saving..." : "Save Job Changes"}
@@ -255,35 +273,32 @@ export default function JobEditModal({ visible, job, onClose, onSaved }: JobEdit
   );
 }
 
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  icon,
-  multiline = false,
-}: {
+type FieldProps = {
   label: string;
   value: string;
-  onChangeText: (value: string) => void;
+  onChangeText: (v: string) => void;
   placeholder: string;
   icon: keyof typeof Feather.glyphMap;
   multiline?: boolean;
-}) {
+  t: any;
+};
+
+function Field({ label, value, onChangeText, placeholder, icon, multiline, t }: FieldProps) {
   return (
     <View className="mb-4">
-      <Text className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{label}</Text>
-      <View className={`rounded-2xl border border-slate-200 bg-slate-50 px-4 ${multiline ? "py-3" : "h-12"} flex-row items-start`}>
-        <Feather name={icon} size={16} color="#64748B" style={{ marginTop: multiline ? 2 : 12 }} />
+      <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>{label}</Text>
+      <View className={`flex-row items-center px-4 rounded-2xl border ${t.border} ${t.bgSurface} ${multiline ? "py-3" : "h-14"}`}>
+        <Feather name={icon} size={18} color={t.icon} />
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
           multiline={multiline}
+          keyboardType={icon === "dollar-sign" ? "numeric" : "default"}
           textAlignVertical={multiline ? "top" : "center"}
-          className="ml-2 flex-1 text-slate-900 font-semibold"
-          style={multiline ? { minHeight: 90, textAlignVertical: "top" } : { height: 48 }}
+          className={`flex-1 ml-3 font-semibold ${t.text}`}
+          style={multiline ? { minHeight: 80 } : undefined}
         />
       </View>
     </View>

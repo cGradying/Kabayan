@@ -85,7 +85,6 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
         throw new Error("You must be signed in to post a job.");
       }
 
-      // Use Google Geocoding API for consistent, accurate coordinates
       let latitude = FALLBACK_COORDINATE.latitude;
       let longitude = FALLBACK_COORDINATE.longitude;
       try {
@@ -138,19 +137,22 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
         className="flex-1 justify-end"
       >
         <View style={{ paddingBottom: insets.bottom }} className="flex-1 bg-black/50 justify-end">
-          <View className={`max-h-[80%] bg-white rounded-t-[32px] p-6 ${t.bgCard}`}>
+          <View className={`max-h-[80%] rounded-t-[32px] p-6 ${t.bgCard}`}>
+            <View className="items-center mb-3">
+              <View className={`w-10 h-1 rounded-full ${t.isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`} />
+            </View>
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
-                <View className="w-10 h-10 rounded-2xl bg-blue-100 items-center justify-center mr-3">
-                  <Feather name="briefcase" size={20} color="#2563eb" />
+                <View className={`w-10 h-10 rounded-2xl ${t.brandSoft} items-center justify-center mr-3`}>
+                  <Feather name="briefcase" size={20} color={t.accent} />
                 </View>
                 <View>
-                  <Text className="text-xl font-black text-slate-900">Create Job Post</Text>
-                  <Text className="text-xs text-slate-500">List what you need—skills, credentials, and scope.</Text>
+                  <Text className={`text-xl font-black ${t.text}`}>Create Job Post</Text>
+                  <Text className={`text-xs ${t.textMuted}`}>List what you need — skills, credentials, and scope.</Text>
                 </View>
               </View>
               <TouchableOpacity onPress={onClose}>
-                <Ionicons name="close" size={22} color="#475569" />
+                <Ionicons name="close" size={22} color={t.icon} />
               </TouchableOpacity>
             </View>
 
@@ -166,6 +168,7 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
                 value={title}
                 onChangeText={setTitle}
                 icon="edit-3"
+                t={t}
               />
               <Field
                 label="Location"
@@ -173,26 +176,38 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
                 value={location}
                 onChangeText={setLocation}
                 icon="map-pin"
+                t={t}
               />
-              <Field
-                label="Budget range (PHP)"
-                placeholder="Minimum"
-                value={budgetMin}
-                onChangeText={setBudgetMin}
-                icon="dollar-sign"
-                inline
-                trailing={
-                  <TextInput
-                    keyboardType="numeric"
-                    placeholder="Maximum"
-                    placeholderTextColor="#94A3B8"
-                    value={budgetMax}
-                    onChangeText={setBudgetMax}
-                    className="ml-3 flex-1 text-base font-semibold text-slate-900"
-                    style={{ paddingVertical: 0 }}
-                  />
-                }
-              />
+
+              <View className="mb-4">
+                <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>
+                  Budget Range (PHP)
+                </Text>
+                <View className="flex-row gap-3">
+                  <View className={`flex-1 h-14 px-4 rounded-2xl border ${t.border} ${t.bgSurface} flex-row items-center`}>
+                    <Feather name="dollar-sign" size={16} color={t.icon} />
+                    <TextInput
+                      value={budgetMin}
+                      onChangeText={setBudgetMin}
+                      placeholder="Min"
+                      keyboardType="numeric"
+                      placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
+                      className={`flex-1 ml-2 font-semibold ${t.text}`}
+                    />
+                  </View>
+                  <View className={`flex-1 h-14 px-4 rounded-2xl border ${t.border} ${t.bgSurface} flex-row items-center`}>
+                    <TextInput
+                      value={budgetMax}
+                      onChangeText={setBudgetMax}
+                      placeholder="Max"
+                      keyboardType="numeric"
+                      placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
+                      className={`flex-1 font-semibold ${t.text}`}
+                    />
+                  </View>
+                </View>
+              </View>
+
               <Field
                 label="What's the work?"
                 placeholder="Describe the job, tools needed, schedule, scope…"
@@ -200,6 +215,7 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
                 onChangeText={setDescription}
                 icon="file-text"
                 multiline
+                t={t}
               />
               <Field
                 label="Requirements"
@@ -207,13 +223,14 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
                 value={requirements}
                 onChangeText={setRequirements}
                 icon="check-square"
+                t={t}
               />
 
-              <View className="mt-5">
-                <Text className="text-[11px] font-black text-slate-500 uppercase tracking-[1.5px] mb-2">
+              <View className="mt-5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <Text className={`text-[10px] font-black uppercase tracking-[1.5px] mb-1 ${t.warning}`}>
                   Tips like Indeed
                 </Text>
-                <Text className="text-slate-600 leading-5">
+                <Text className={`text-xs leading-5 ${t.textMuted}`}>
                   Be specific about qualifications (certifications, years of experience, diploma), tools needed, and when the work should start. Clear posts attract better applicants.
                 </Text>
               </View>
@@ -225,11 +242,13 @@ export default function JobModal({ visible, onClose, onCreated }: JobModalProps)
                 activeOpacity={0.9}
               >
                 <Text className="text-white font-black uppercase text-base tracking-widest">
-                  {saving ? "Saving…" : "Post Job"}
+                  {saving ? "Saving\u2026" : "Post Job"}
                 </Text>
               </TouchableOpacity>
               {error && (
-                <Text className="mt-3 text-red-500 text-sm font-semibold">{error}</Text>
+                <View className="mt-3 p-3 rounded-2xl bg-red-500/10 border border-red-400/30">
+                  <Text className="text-red-500 text-xs font-semibold">{error}</Text>
+                </View>
               )}
               <View className="h-4" />
             </ScrollView>
@@ -247,28 +266,26 @@ type FieldProps = {
   placeholder: string;
   icon: keyof typeof Feather.glyphMap;
   multiline?: boolean;
-  inline?: boolean;
-  trailing?: React.ReactNode;
+  t: any;
 };
 
-function Field({ label, value, onChangeText, placeholder, icon, multiline, inline, trailing }: FieldProps) {
+function Field({ label, value, onChangeText, placeholder, icon, multiline, t }: FieldProps) {
   return (
     <View className="mb-4">
-      <Text className="text-[10px] font-black uppercase tracking-[2px] text-slate-400 mb-2 ml-1">{label}</Text>
-      <View className={`flex-row items-center px-4 rounded-2xl border border-slate-200 bg-slate-50 ${multiline ? "py-3" : "h-14"}`}>
-        <Feather name={icon} size={18} color="#475569" />
+      <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>{label}</Text>
+      <View className={`flex-row items-center px-4 rounded-2xl border ${t.border} ${t.bgSurface} ${multiline ? "py-3" : "h-14"}`}>
+        <Feather name={icon} size={18} color={t.icon} />
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
           multiline={multiline}
           keyboardType={icon === "dollar-sign" ? "numeric" : "default"}
           textAlignVertical={multiline ? "top" : "center"}
-          className="flex-1 ml-3 font-semibold text-slate-900"
+          className={`flex-1 ml-3 font-semibold ${t.text}`}
           style={multiline ? { minHeight: 80 } : undefined}
         />
-        {inline && trailing}
       </View>
     </View>
   );

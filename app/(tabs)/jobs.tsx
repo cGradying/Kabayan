@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Text, View, Pressable, ActivityIndicator, TouchableOpacity, RefreshControl } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Text, View, Pressable, TouchableOpacity, RefreshControl, Animated } from "react-native";
 import { useRouter } from "expo-router";
 import { LegendList } from "@legendapp/list";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import { api } from "@/utils/api";
 import JobModal from "@/components/JobComponents/JobModal";
@@ -19,6 +19,26 @@ type JobRow = {
   status: string;
   created_at: string;
 };
+
+function JobCardSkeleton({ t }: { t: any }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
+  return (
+    <Animated.View style={{ opacity }} className={`p-5 rounded-[24px] mb-4 ${t.bgCard} border ${t.border}`}>
+      <View className={`h-4 w-24 rounded-full ${t.bgSurface} mb-3`} />
+      <View className={`h-5 w-48 rounded-full ${t.bgSurface} mb-2`} />
+      <View className={`h-3 w-32 rounded-full ${t.bgSurface}`} />
+    </Animated.View>
+  );
+}
 
 export default function Jobs() {
   const { t } = useTheme();
@@ -70,7 +90,7 @@ export default function Jobs() {
 
   return (
     <View className={`flex-1 ${t.bgPage}`}>
-      <View className="px-4 pt-5 pb-3">
+      <View className={`px-4 pt-4 pb-3 ${t.bgCard} border-b ${t.border}`}>
         <CustomSearchComponent
           value={search}
           onSearch={setSearch}
@@ -79,9 +99,10 @@ export default function Jobs() {
         />
       </View>
       {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
-          <Text className={`mt-2 ${t.textMuted}`}>Loading jobs…</Text>
+        <View className="flex-1 px-4 pt-4">
+          <JobCardSkeleton t={t} />
+          <JobCardSkeleton t={t} />
+          <JobCardSkeleton t={t} />
         </View>
       ) : (
         <>
@@ -89,23 +110,38 @@ export default function Jobs() {
             data={filteredJobs}
             keyExtractor={(item) => item.id}
             estimatedItemSize={120}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
-            refreshControl={<RefreshControl refreshing={loading} onRefresh={loadJobs} />}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 140 }}
+            refreshControl={<RefreshControl refreshing={loading} onRefresh={loadJobs} tintColor="#2563EB" colors={["#2563EB"]} />}
             ListEmptyComponent={
-              <View className="py-16 items-center">
-                <Text className={`text-sm ${t.textMuted}`}>
-                  {search.trim() ? "No jobs match your search" : "No jobs available"}
+              <View className={`mx-0 mt-4 p-8 rounded-[28px] border ${t.border} ${t.bgCard} items-center`}>
+                <View className={`w-20 h-20 rounded-[28px] ${t.brandSoft} items-center justify-center mb-4`}>
+                  <Ionicons name={search.trim() ? "search-outline" : "briefcase-outline"} size={36} color={t.accent} />
+                </View>
+                <Text className={`text-lg font-black text-center ${t.text}`}>
+                  {search.trim() ? "No matches found" : "No open jobs yet"}
                 </Text>
+                <Text className={`mt-2 text-sm text-center leading-5 ${t.textMuted}`}>
+                  {search.trim() ? "Try a different title or location." : "Check back soon, or be the first to post one."}
+                </Text>
+                {!search.trim() && (
+                  <TouchableOpacity
+                    onPress={() => setShowModal(true)}
+                    className={`mt-5 px-6 py-3 rounded-2xl ${t.brandBg}`}
+                  >
+                    <Text className="text-white font-black text-xs uppercase tracking-widest">Post a Job</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             }
             renderItem={({ item }) => <JobCard job={item} t={t} />}
           />
           <TouchableOpacity
             onPress={() => setShowModal(true)}
-            className="absolute bottom-6 right-6 bg-blue-600 w-14 h-14 rounded-full items-center justify-center shadow-lg shadow-blue-500/30"
+            className={`absolute bottom-6 right-6 flex-row items-center px-5 h-14 rounded-full shadow-lg shadow-blue-500/30 ${t.brandBg}`}
             activeOpacity={0.85}
           >
-            <MaterialIcons name="add" size={26} color="white" />
+            <MaterialIcons name="add" size={22} color="white" />
+            <Text className="text-white font-black text-xs ml-2 uppercase tracking-widest">Post Job</Text>
           </TouchableOpacity>
           <JobModal
             visible={showModal}
@@ -127,19 +163,31 @@ export default function Jobs() {
 
 function JobCard({ job, t }: { job: any; t: any }) {
   const router = useRouter();
+  const badgeConfig = job.is_urgent
+    ? { bg: 'bg-red-50', text: 'text-red-600', label: 'Urgent' }
+    : job.status === 'open'
+    ? { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'Open' }
+    : { bg: 'bg-slate-100', text: 'text-slate-500', label: job.status };
+
   return (
-    <Pressable onPress={() => router.push({ pathname: "/job/JobView", params: { jobId: job.id } })} className={`p-5 rounded-[24px] mb-4 ${t.bgCard} border ${t.border} shadow-sm`}>
+    <Pressable
+      onPress={() => router.push({ pathname: "/job/JobView", params: { jobId: job.id } })}
+      className={`p-5 rounded-[24px] mb-4 ${t.bgCard} border ${t.border} shadow-sm`}
+      accessibilityRole="button"
+    >
       <View className="flex-row justify-between items-start">
         <View className="flex-1">
-          <View className="bg-red-50 self-start px-2 py-1 rounded-md mb-2">
-            <Text className="text-red-600 font-black text-[9px] uppercase tracking-widest">{job.type}</Text>
+          <View className={`self-start px-2 py-1 rounded-md mb-2 ${badgeConfig.bg}`}>
+            <Text className={`font-black text-[9px] uppercase tracking-widest ${badgeConfig.text}`}>
+              {badgeConfig.label}
+            </Text>
           </View>
           <Text className={`text-lg font-black tracking-tight ${t.text}`}>{job.title}</Text>
           <Text className={`text-xs font-bold ${t.brand} mt-1`}>{job.company}</Text>
         </View>
-        <Text className="text-emerald-600 font-black text-lg">{job.salary}</Text>
+        <Text className={`${t.price} font-black text-lg`}>{job.salary}</Text>
       </View>
-      
+
       <View className={`mt-4 pt-4 border-t ${t.border} flex-row justify-between items-center`}>
         <View className="flex-row items-center">
           <MaterialIcons name="location-on" size={14} color={t.icon} />

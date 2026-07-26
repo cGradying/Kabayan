@@ -1,16 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  KeyboardAvoidingView, 
-  Platform, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
   FlatList,
 } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import {useSafeAreaInsets} from "react-native-safe-area-context"
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
 import { api, getStoredUser } from "@/utils/api";
 import AppFlashMessage from "@/components/CustomComponents/AppFlashMessage";
@@ -20,9 +20,8 @@ import humanizeError from "@/utils/humanizeError";
 export default function ChatRoomLayout() {
   const { t } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets()
+  const insets = useSafeAreaInsets();
   const { roomId = "demo-room", name, jobTitle } = useLocalSearchParams<{
-    
     roomId?: string;
     name?: string;
     jobTitle?: string;
@@ -48,21 +47,18 @@ export default function ChatRoomLayout() {
           setMessages(data.map(mapMessage));
         }
       } catch {
-        // silently fail
+        /* silently fail */
       }
     };
     loadMessages();
-    // Realtime channels removed — polling replaces realtime
+    const interval = setInterval(() => {
+      if (isMounted) loadMessages();
+    }, 5000);
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, [roomId]);
-
-  useEffect(() => {
-    if (messages.length > 0 && flatListRef.current) {
-      flatListRef.current.scrollToEnd({ animated: true });
-    }
-  }, [messages]);
 
   const handleSend = async () => {
     const text = message.trim();
@@ -114,10 +110,15 @@ export default function ChatRoomLayout() {
         style={{ paddingTop: insets.top + 8, paddingBottom: 14, paddingHorizontal: 18 }}
       >
         <View className="flex-row items-center flex-1">
-          <TouchableOpacity onPress={() => router.back()} className="p-2 mr-1">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="p-2 mr-1"
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <Feather name="chevron-left" size={26} color={t.icon} />
           </TouchableOpacity>
-          
+
           <View className="relative">
             <View className="w-10 h-10 rounded-full bg-blue-600 items-center justify-center">
               <Text className="text-white font-black text-base">
@@ -129,36 +130,67 @@ export default function ChatRoomLayout() {
 
           <View className="ml-3">
             <Text className={`font-black text-sm tracking-tight ${t.text}`}>{headerName}</Text>
-            <Text className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">Active Now</Text>
+            <Text className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>
+              {jobTitle ? 'Job Chat' : 'Direct Message'}
+            </Text>
           </View>
         </View>
 
-        <TouchableOpacity className={`${t.bgSurface} p-2.5 rounded-xl border ${t.border}`}>
+        <TouchableOpacity
+          className={`${t.bgSurface} p-2.5 rounded-xl border ${t.border}`}
+          accessibilityLabel="More options"
+          accessibilityRole="button"
+        >
           <Feather name="more-vertical" size={18} color={t.icon} />
         </TouchableOpacity>
       </View>
 
-      <View className={`${t.brandSoft} px-5 py-3 border-b ${t.border} flex-row justify-between items-center`}>
-        <View className="flex-row items-center flex-1">
-          <MaterialCommunityIcons name="hammer-wrench" size={16} color={t.accent} />
-          <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${t.textMuted}`} numberOfLines={1}>
-            {`Job: ${headerJob}`}
-          </Text>
+      {headerJob && headerJob !== 'Conversation' && (
+        <View
+          className={`${t.brandSoft} px-5 py-3 border-b ${t.border} flex-row justify-between items-center`}
+        >
+          <View className="flex-row items-center flex-1">
+            <MaterialCommunityIcons name="hammer-wrench" size={16} color={t.accent} />
+            <Text
+              className={`ml-2 text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}
+              numberOfLines={1}
+            >
+              {`Job: ${headerJob}`}
+            </Text>
+          </View>
+          <TouchableOpacity>
+            <Text className={`text-[10px] font-black uppercase ${t.brand}`}>View Details</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity>
-          <Text className={`text-[10px] font-black text-blue-600 uppercase`}>View Details</Text>
-        </TouchableOpacity>
-      </View>
+      )}
 
       <FlatList
         ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 18, paddingBottom: 28 }}
+        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 18, paddingBottom: 28, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-        renderItem={({ item }) => <ChatBubble item={item} t={t} userId={userId} otherName={headerName} />}
+        onContentSizeChange={() => {
+          if (messages.length > 0) {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }
+        }}
+        ListEmptyComponent={
+          <View className="flex-1 items-center justify-center py-16">
+            <View className={`w-16 h-16 rounded-[24px] ${t.brandSoft} items-center justify-center mb-4`}>
+              <Ionicons name="chatbubbles-outline" size={28} color={t.accent} />
+            </View>
+            <Text className={`text-base font-black text-center ${t.text}`}>No messages yet</Text>
+            <Text className={`mt-2 text-sm text-center leading-5 ${t.textMuted} px-8`}>
+              Send a message to start the conversation.
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <ChatBubble item={item} t={t} userId={userId} otherName={headerName} />
+        )}
       />
 
       <AppFlashMessage message={flashMessage} onClose={hideFlashMessage} />
@@ -167,36 +199,28 @@ export default function ChatRoomLayout() {
         className={`${t.bgCard} border-t ${t.border} px-4 pt-3 flex-row items-end gap-x-3`}
         style={{ paddingBottom: insets.bottom + 10 }}
       >
-          <TouchableOpacity className={`${t.bgSurface} h-12 w-12 rounded-2xl items-center justify-center border ${t.border}`}>
-            <Feather name="plus" size={20} color={t.icon} />
-          </TouchableOpacity>
-
-          <View className={`flex-1 flex-row items-center min-h-[48px] px-4 rounded-2xl ${t.bgSurface} border ${t.border}`}>
-            <TextInput
-              placeholder="Message..."
-              placeholderTextColor={t.icon}
-              multiline
-              value={message}
-              onChangeText={setMessage}
-              textAlignVertical="top"
-              className={`flex-1 py-3 text-sm font-medium ${t.text}`}
-              style={{ maxHeight: 100 }}
-            />
-            {message.length > 0 && (
-              <TouchableOpacity 
-                onPress={handleSend}
-                className="ml-2 bg-blue-600 w-8 h-8 rounded-full items-center justify-center shadow-sm"
-              >
-                <Ionicons name="arrow-up" size={18} color="white" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {message.length === 0 && (
-            <TouchableOpacity className="h-12 w-12 items-center justify-center">
-              <MaterialCommunityIcons name="microphone-outline" size={24} color={t.icon} />
+        <View
+          className={`flex-1 flex-row items-center min-h-[48px] px-4 rounded-2xl ${t.bgSurface} border ${t.border}`}
+        >
+          <TextInput
+            placeholder="Message..."
+            placeholderTextColor={t.icon}
+            multiline
+            value={message}
+            onChangeText={setMessage}
+            textAlignVertical="top"
+            className={`flex-1 py-3 text-sm font-medium ${t.text}`}
+            style={{ maxHeight: 100 }}
+          />
+          {message.length > 0 && (
+            <TouchableOpacity
+              onPress={handleSend}
+              className="ml-2 bg-blue-600 w-8 h-8 rounded-full items-center justify-center shadow-sm"
+            >
+              <Ionicons name="arrow-up" size={18} color="white" />
             </TouchableOpacity>
           )}
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -216,17 +240,21 @@ function ChatBubble({
   const isMe = userId ? item.senderId === userId : item.senderId === "me";
   return (
     <View className={`mb-4 flex-row ${isMe ? "justify-end" : "justify-start"}`}>
-      <View 
+      <View
         className={`max-w-[75%] px-4 py-3 rounded-[24px] shadow-sm 
         ${isMe ? "bg-blue-600 rounded-tr-none" : `${t.bgSurface} border ${t.border} rounded-tl-none`}`}
       >
-        <Text className={`text-[9px] mb-1 font-black uppercase tracking-widest ${isMe ? "text-blue-200" : t.textMuted}`}>
+        <Text
+          className={`text-[10px] mb-1 font-black uppercase tracking-widest ${isMe ? "text-blue-200" : t.textMuted}`}
+        >
           {isMe ? "You" : otherName}
         </Text>
         <Text className={`text-sm font-medium leading-5 ${isMe ? "text-white" : t.text}`}>
           {item.text}
         </Text>
-        <Text className={`text-[8px] font-black uppercase mt-1 text-right ${isMe ? "text-blue-200" : t.textMuted}`}>
+        <Text
+          className={`text-[10px] font-black uppercase mt-1 text-right ${isMe ? "text-blue-200" : t.textMuted}`}
+        >
           {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </Text>
       </View>

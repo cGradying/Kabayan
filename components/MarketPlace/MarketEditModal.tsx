@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -54,6 +55,7 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
   const [price, setPrice] = useState("");
   const [location, setLocation] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [isOpen, setIsOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +68,7 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
     setPrice(String(listing.price ?? 0));
     setLocation(listing.location_label ?? "");
     setImageUrl(listing.image_url ?? "");
+    setIsOpen(Boolean(listing.is_open));
     setError(null);
   }, [listing, visible]);
 
@@ -115,7 +118,7 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
         latitude,
         longitude,
         image_url: trimmedImageUrl || null,
-        is_open: listing.is_open,
+        is_open: isOpen,
       });
 
       if (!data) throw new Error("No updated listing returned.");
@@ -149,10 +152,13 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
-        style={{ flex: 1, justifyContent: "flex-end", paddingBottom: insets.bottom }}
+        className="flex-1 justify-end"
       >
-        <View className="flex-1 bg-black/50 justify-end">
+        <View style={{ paddingBottom: insets.bottom }} className="flex-1 bg-black/50 justify-end">
           <View className={`max-h-[85%] rounded-t-[30px] px-6 pt-6 pb-4 ${t.bgCard}`}>
+            <View className="items-center mb-3">
+              <View className={`w-10 h-1 rounded-full ${t.isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`} />
+            </View>
             <View className="flex-row items-center justify-between mb-4">
               <Text className={`text-xl font-black ${t.text}`}>Edit Store Listing</Text>
               <TouchableOpacity onPress={onClose}>
@@ -166,12 +172,31 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               contentContainerStyle={{ paddingBottom: 16 }}
             >
-              <Field label="Store Name" value={storeName} onChangeText={setStoreName} placeholder="Your customer-facing store name" icon="home" />
-              <Field label="Item Name" value={name} onChangeText={setName} placeholder="Store item name" icon="tag" />
-              <Field label="Category" value={category} onChangeText={setCategory} placeholder="Meals, Drinks, Grocery, Services" icon="grid" />
-              <Field label="Price (PHP)" value={price} onChangeText={setPrice} placeholder="0" icon="dollar-sign" keyboardType="numeric" />
-              <Field label="Location" value={location} onChangeText={setLocation} placeholder="City / area" icon="map-pin" />
-              <Field label="Image URL" value={imageUrl} onChangeText={setImageUrl} placeholder="https://..." icon="image" />
+              <Field label="Store Name" value={storeName} onChangeText={setStoreName} placeholder="Your customer-facing store name" icon="home" t={t} />
+              <Field label="Item Name" value={name} onChangeText={setName} placeholder="Store item name" icon="tag" t={t} />
+              <Field label="Category" value={category} onChangeText={setCategory} placeholder="Meals, Drinks, Grocery, Services" icon="grid" t={t} />
+              <Field label="Price (PHP)" value={price} onChangeText={setPrice} placeholder="0" icon="dollar-sign" t={t} />
+              <Field label="Location" value={location} onChangeText={setLocation} placeholder="City / area" icon="map-pin" t={t} />
+
+              <View className="mb-4">
+                <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>Item Image URL</Text>
+                {imageUrl.trim() !== '' && (
+                  <Image source={{ uri: imageUrl }} className="w-full h-36 rounded-2xl mb-2" resizeMode="cover" />
+                )}
+                <View className={`flex-row items-center px-4 h-12 rounded-2xl border ${t.border} ${t.bgSurface}`}>
+                  <Feather name="image" size={16} color={t.icon} />
+                  <TextInput
+                    value={imageUrl}
+                    onChangeText={setImageUrl}
+                    placeholder="https://..."
+                    placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
+                    autoCapitalize="none"
+                    keyboardType="url"
+                    className={`flex-1 ml-2 font-semibold ${t.text}`}
+                  />
+                </View>
+              </View>
+
               <Field
                 label="Description"
                 value={description}
@@ -179,14 +204,36 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
                 placeholder="Description, item details, and store notes"
                 icon="file-text"
                 multiline
+                t={t}
               />
 
-              {error ? <Text className="text-xs font-semibold text-red-600">{error}</Text> : null}
+              <TouchableOpacity
+                onPress={() => setIsOpen((prev) => !prev)}
+                className={`mb-3 h-12 px-4 rounded-2xl border flex-row items-center justify-between ${
+                  isOpen
+                    ? 'border-emerald-400 bg-emerald-500/10'
+                    : `${t.border} ${t.bgSurface}`
+                }`}
+              >
+                <View className="flex-row items-center">
+                  <Feather name="toggle-right" size={16} color={isOpen ? "#059669" : t.icon} />
+                  <Text className={`ml-2 text-xs font-black uppercase tracking-widest ${isOpen ? "text-emerald-600" : t.textMuted}`}>
+                    {isOpen ? "Store is Open" : "Store is Closed"}
+                  </Text>
+                </View>
+                <Ionicons name={isOpen ? "checkmark-circle" : "ellipse-outline"} size={18} color={isOpen ? "#059669" : t.icon} />
+              </TouchableOpacity>
+
+              {error ? (
+                <View className="mt-3 p-3 rounded-2xl bg-red-500/10 border border-red-400/30">
+                  <Text className="text-red-500 text-xs font-semibold">{error}</Text>
+                </View>
+              ) : null}
 
               <TouchableOpacity
                 onPress={handleSave}
                 disabled={saving}
-                className={`mt-5 h-12 rounded-2xl items-center justify-center ${saving ? "bg-blue-400" : "bg-blue-600"}`}
+                className={`mt-5 h-14 rounded-2xl items-center justify-center shadow-lg shadow-emerald-500/30 ${saving ? "bg-emerald-400" : "bg-emerald-600"}`}
               >
                 <Text className="text-white text-xs font-black uppercase tracking-widest">
                   {saving ? "Saving..." : "Save Store Changes"}
@@ -200,38 +247,32 @@ export default function MarketEditModal({ visible, listing, onClose, onSaved }: 
   );
 }
 
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  icon,
-  multiline = false,
-  keyboardType = "default",
-}: {
+type FieldProps = {
   label: string;
   value: string;
-  onChangeText: (value: string) => void;
+  onChangeText: (v: string) => void;
   placeholder: string;
   icon: keyof typeof Feather.glyphMap;
   multiline?: boolean;
-  keyboardType?: "default" | "numeric";
-}) {
+  t: any;
+};
+
+function Field({ label, value, onChangeText, placeholder, icon, multiline, t }: FieldProps) {
   return (
     <View className="mb-4">
-      <Text className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{label}</Text>
-      <View className={`rounded-2xl border border-slate-200 bg-slate-50 px-4 ${multiline ? "py-3" : "h-12"} flex-row items-start`}>
-        <Feather name={icon} size={16} color="#64748B" style={{ marginTop: multiline ? 2 : 12 }} />
+      <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>{label}</Text>
+      <View className={`flex-row items-center px-4 rounded-2xl border ${t.border} ${t.bgSurface} ${multiline ? "py-3" : "h-14"}`}>
+        <Feather name={icon} size={18} color={t.icon} />
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
           multiline={multiline}
-          keyboardType={keyboardType}
+          keyboardType={icon === "dollar-sign" ? "numeric" : "default"}
           textAlignVertical={multiline ? "top" : "center"}
-          className="ml-2 flex-1 text-slate-900 font-semibold"
-          style={multiline ? { minHeight: 90, textAlignVertical: "top" } : { height: 48 }}
+          className={`flex-1 ml-3 font-semibold ${t.text}`}
+          style={multiline ? { minHeight: 80 } : undefined}
         />
       </View>
     </View>

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Image, RefreshControl, Animated } from 'react-native';
 import CustomSearchBarComponent from "@/components/CustomComponents/CustomSearchComponent";
 import { LegendList } from '@legendapp/list';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -8,6 +8,16 @@ import { api } from '@/utils/api';
 import { useRouter } from 'expo-router';
 
 const CATEGORIES = ['All', 'Street Food', 'Kakanin', 'Ulam', 'Desserts', 'Other'];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  'Street Food': '#F59E0B',
+  'Kakanin':     '#EC4899',
+  'Ulam':        '#10B981',
+  'Desserts':    '#8B5CF6',
+  'Other':       '#64748B',
+};
+
+const getCategoryColor = (category: string) => CATEGORY_COLORS[category] ?? '#64748B';
 
 type ListingFeedRow = {
   id: string;
@@ -25,6 +35,29 @@ type ListingFeedRow = {
   avg_rating: number;
   review_count: number;
 };
+
+function MarketSkeleton({ t }: { t: any }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
+  return (
+    <Animated.View style={{ opacity }} className={`rounded-[30px] overflow-hidden mb-5 ${t.bgCard} border ${t.border}`}>
+      <View className={`h-40 w-full ${t.bgSurface}`} />
+      <View className="px-5 py-5">
+        <View className={`h-5 w-32 rounded-full ${t.bgSurface} mb-2`} />
+        <View className={`h-4 w-24 rounded-full ${t.bgSurface} mb-3`} />
+        <View className={`h-3 w-48 rounded-full ${t.bgSurface}`} />
+      </View>
+    </Animated.View>
+  );
+}
 
 const toNumber = (value: number | string | null | undefined, fallback = 0) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
@@ -96,19 +129,19 @@ export default function MarketPlace() {
   return (
     <View className={`flex-1 ${t.bgPage}`}>
       <View className={`pt-6 pb-5 px-5 ${t.bgCard} border-b ${t.border}`}>
-       <CustomSearchBarComponent
+        <CustomSearchBarComponent
           value={search}
           onSearch={setSearch}
           placeholder="Search store items and stores"
           onNavigateToMap={() => router.push("/map/mapView")}
         />
-       
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4" contentContainerStyle={{ paddingRight: 12 }}>
           {CATEGORIES.map((cat) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={cat}
               onPress={() => setActiveTab(cat)}
-              className={`mr-2 px-5 py-3 rounded-2xl border ${activeTab === cat ? 'bg-blue-600 border-blue-600' : `${t.bgSurface} ${t.border}`}`}
+              className={`mr-2 px-4 py-2 rounded-2xl border ${activeTab === cat ? `${t.brandBg} border-[#2563EB]` : `${t.bgSurface} ${t.border}`}`}
             >
               <Text className={`text-[11px] font-black uppercase tracking-tight ${activeTab === cat ? 'text-white' : t.textMuted}`}>
                 {cat}
@@ -119,9 +152,10 @@ export default function MarketPlace() {
       </View>
 
       {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
-          <Text className={`mt-2 ${t.textMuted}`}>Loading stores…</Text>
+        <View className="flex-1 px-4 pt-4">
+          <MarketSkeleton t={t} />
+          <MarketSkeleton t={t} />
+          <MarketSkeleton t={t} />
         </View>
       ) : (
         <LegendList
@@ -129,12 +163,26 @@ export default function MarketPlace() {
           keyExtractor={(item) => item.id}
           estimatedItemSize={340}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 120 }}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={loadListings} />}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={loadListings} tintColor="#2563EB" colors={["#2563EB"]} />}
           ListEmptyComponent={
-            <View className={`py-16 px-6 items-center rounded-[28px] border ${t.border} ${t.bgCard}`}>
-              <Text className={`text-sm ${t.textMuted}`}>
-                {search.trim() ? "No store items or stores found" : "No stores found"}
+            <View className={`p-8 rounded-[28px] border ${t.border} ${t.bgCard} items-center`}>
+              <View className={`w-20 h-20 rounded-[28px] ${t.brandSoft} items-center justify-center mb-4`}>
+                <Feather name="shopping-bag" size={36} color={t.accent} />
+              </View>
+              <Text className={`text-lg font-black text-center ${t.text}`}>
+                {search.trim() ? "No matches found" : "No stores nearby"}
               </Text>
+              <Text className={`mt-2 text-sm text-center leading-5 ${t.textMuted}`}>
+                {search.trim() ? "Try a different category or search term." : "Be the first to list your products in this area."}
+              </Text>
+              {!search.trim() && (
+                <TouchableOpacity
+                  onPress={() => router.push("/marketPlace/addListing")}
+                  className={`mt-5 px-6 py-3 rounded-2xl ${t.brandBg}`}
+                >
+                  <Text className="text-white font-black text-xs uppercase tracking-widest">Add a Listing</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
           renderItem={({ item }) => (
@@ -148,18 +196,20 @@ export default function MarketPlace() {
 
 function VendorCard({ vendor, t, onPress }: { vendor: any; t: any; onPress: () => void }) {
   const verified = Boolean(vendor.store_permit_verified);
+  const placeholderColor = getCategoryColor(vendor.category);
+
   return (
     <TouchableOpacity activeOpacity={0.96} className={`rounded-[30px] overflow-hidden mb-5 ${t.bgCard} border ${t.border}`} onPress={onPress}>
       <View className="h-40 w-full relative">
         {vendor.image_url ? (
           <Image source={{ uri: vendor.image_url }} className="w-full h-full" />
         ) : (
-          <View className={`w-full h-full px-5 pb-5 items-start justify-end ${t.bgSurface}`}>
-            <View className="w-12 h-12 rounded-2xl bg-white/80 items-center justify-center">
-              <Feather name="shopping-bag" size={20} color={t.icon} />
+          <View style={{ backgroundColor: placeholderColor + '20' }} className="w-full h-full px-5 pb-5 items-start justify-end">
+            <View className="w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: placeholderColor + '30' }}>
+              <Feather name="shopping-bag" size={20} color={placeholderColor} />
             </View>
             <Text className={`mt-3 text-lg font-black tracking-tight ${t.text}`}>{vendor.store_name}</Text>
-            <Text className={`mt-1 text-xs font-semibold ${t.textMuted}`}>Store preview</Text>
+            <Text className="mt-1 text-xs font-bold" style={{ color: placeholderColor }}>{vendor.category}</Text>
           </View>
         )}
         <View className="absolute top-4 left-4 flex-row">
@@ -169,9 +219,9 @@ function VendorCard({ vendor, t, onPress }: { vendor: any; t: any; onPress: () =
             </Text>
           </View>
         </View>
-        <View className="absolute top-4 right-4 bg-white/95 px-2.5 py-1.5 rounded-xl flex-row items-center">
+        <View className={`absolute top-4 right-4 ${t.bgOverlay} px-2.5 py-1.5 rounded-xl flex-row items-center`}>
           <Ionicons name="star" size={12} color="#F59E0B" />
-          <Text className="text-[11px] font-black ml-1 text-slate-900">
+          <Text className={`text-[11px] font-black ml-1 ${t.text}`}>
             {vendor.review_count > 0 ? vendor.avg_rating.toFixed(1) : "New"}
           </Text>
         </View>
@@ -182,11 +232,18 @@ function VendorCard({ vendor, t, onPress }: { vendor: any; t: any; onPress: () =
           {vendor.image_url ? (
             <Image
               source={{ uri: vendor.image_url }}
-              className="w-24 h-24 rounded-[28px] border-4 border-white"
+              className="w-24 h-24 rounded-[28px] border-[3px]"
+              style={{ borderColor: t.isDarkMode ? '#1E293B' : '#FFFFFF' }}
             />
           ) : (
-            <View className="w-24 h-24 rounded-[28px] border-4 border-white bg-slate-200 items-center justify-center">
-              <Text className="text-slate-600 font-black text-xl">{String(vendor.store_name ?? "S").slice(0, 1).toUpperCase()}</Text>
+            <View
+              className="w-24 h-24 rounded-[28px] border-[3px] items-center justify-center"
+              style={{
+                backgroundColor: placeholderColor + '20',
+                borderColor: t.isDarkMode ? '#1E293B' : '#FFFFFF',
+              }}
+            >
+              <Text className="font-black text-xl" style={{ color: placeholderColor }}>{String(vendor.store_name ?? "S").slice(0, 1).toUpperCase()}</Text>
             </View>
           )}
         </View>
@@ -199,7 +256,7 @@ function VendorCard({ vendor, t, onPress }: { vendor: any; t: any; onPress: () =
             </View>
             <Text className={`text-sm mt-1 font-black ${t.text}`}>{vendor.name}</Text>
             <View className="flex-row items-center mt-2">
-              <MaterialIcons name="location-on" size={14} color="#3B82F6" />
+              <MaterialIcons name="location-on" size={14} color={t.accent} />
               <Text className={`text-xs ml-1 font-semibold ${t.textMuted}`}>{vendor.location_label}</Text>
             </View>
           </View>
@@ -222,7 +279,7 @@ function VendorCard({ vendor, t, onPress }: { vendor: any; t: any; onPress: () =
           </View>
           <View className="items-end">
             <Text className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Tap to view</Text>
-            <TouchableOpacity className="mt-2 bg-slate-900 px-5 py-3 rounded-2xl">
+            <TouchableOpacity onPress={onPress} className={`mt-2 px-5 py-3 rounded-2xl ${t.brandBg}`}>
               <Text className="text-white font-black text-[10px] uppercase tracking-widest">
                 {vendor.is_open ? "View & Order" : "View Item"}
               </Text>

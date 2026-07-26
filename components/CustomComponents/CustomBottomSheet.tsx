@@ -31,10 +31,10 @@ export default function CustomBottomSheet({ bottomSheetRef, type }: CustomBottom
       snapPoints={snapPoints}
       enablePanDownToClose
       backdropComponent={renderBackdrop}
-      handleIndicatorStyle={{ backgroundColor: t.isDarkMode ? "#334155" : "#CBD5E1", width: 45 }}
+      handleIndicatorStyle={{ backgroundColor: t.isDarkMode ? "#334155" : "#CBD5E1", width: 40 }}
       backgroundStyle={{ 
         backgroundColor: t.isDarkMode ? "#0F172A" : "#FFFFFF", 
-        borderRadius: 40 
+        borderRadius: 30 
       }}
     >
       <BottomSheetView className="p-8">

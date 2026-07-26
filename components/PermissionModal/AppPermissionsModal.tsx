@@ -66,7 +66,6 @@ export default function AppPermissionsModal({ visible, onDone }: AppPermissionsM
         ImagePicker.getMediaLibraryPermissionsAsync(),
         Location.getForegroundPermissionsAsync(),
       ]);
-
       setPermissions({
         camera: normalizePermission(camera),
         microphone: null,
@@ -99,9 +98,9 @@ export default function AppPermissionsModal({ visible, onDone }: AppPermissionsM
   const requestSingle = async (key: PermissionKey) => {
     setRequestingKey(key);
     try {
-      const updatedPermission = await requestByKey(key);
-      if (!updatedPermission) return;
-      setPermissions((prev) => ({ ...prev, [key]: updatedPermission }));
+      const updated = await requestByKey(key);
+      if (!updated) return;
+      setPermissions((prev) => ({ ...prev, [key]: updated }));
     } finally {
       setRequestingKey(null);
     }
@@ -125,14 +124,34 @@ export default function AppPermissionsModal({ visible, onDone }: AppPermissionsM
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDone}>
       <View className="flex-1 bg-black/45 justify-center px-5">
         <View className={`rounded-3xl p-5 border ${t.border} ${t.bgCard}`}>
-          <View className="flex-row items-center justify-between mb-2">
+
+          {/* Header with progress pill */}
+          <View className="flex-row items-center justify-between mb-4">
             <Text className={`text-xl font-black ${t.text}`}>Permissions</Text>
-            <Text className="text-xs font-bold text-blue-600">{grantedCount}/{PERMISSIONS.length} granted</Text>
+            {/* Visual progress pill — theme-aware */}
+            <View
+              className={`px-2.5 py-1 rounded-full ${allGranted ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}
+            >
+              <Text className={`text-xs font-black ${allGranted ? 'text-emerald-600' : 'text-blue-600'}`}>
+                {grantedCount}/{PERMISSIONS.length}
+              </Text>
+            </View>
           </View>
 
+          {/* Denied warning — dark-mode aware */}
           {hasDenied && (
-            <View className="mb-4 p-3 rounded-2xl bg-amber-50 border border-amber-200">
-              <Text className="text-xs text-amber-800 font-semibold">
+            <View
+              className={`mb-4 p-3 rounded-2xl border ${
+                t.isDarkMode
+                  ? 'bg-amber-900/20 border-amber-700'
+                  : 'bg-amber-50 border-amber-200'
+              }`}
+            >
+              <Text
+                className={`text-xs font-semibold ${
+                  t.isDarkMode ? 'text-amber-300' : 'text-amber-800'
+                }`}
+              >
                 Some permissions were denied. Enable them in Settings for full functionality.
               </Text>
             </View>
@@ -140,41 +159,62 @@ export default function AppPermissionsModal({ visible, onDone }: AppPermissionsM
 
           {checking ? (
             <View className="py-8 items-center">
-              <ActivityIndicator />
-              <Text className={`mt-2 ${t.textMuted}`}>Checking permissions…</Text>
+              <ActivityIndicator color={t.accent} />
+              <Text className={`mt-2 text-sm ${t.textMuted}`}>Checking permissions…</Text>
             </View>
           ) : (
             <View className="gap-y-3">
               {PERMISSIONS.map((permission) => {
                 const state = permissions[permission.key];
                 const granted = !!state?.granted;
-                const cannotAskAgain = state?.canAskAgain === false;
+                const cannotAskAgain = state?.canAskAgain === false && !granted;
                 const requesting = requestingKey === permission.key || requestingKey === "all";
 
                 return (
-                  <View key={permission.key} className={`p-3 rounded-2xl border ${t.border} ${t.bgSurface}`}>
+                  <View
+                    key={permission.key}
+                    className={`p-3 rounded-2xl border ${t.border} ${t.bgSurface}`}
+                  >
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center flex-1 pr-3">
-                        <View className="w-9 h-9 rounded-xl bg-blue-100 items-center justify-center">
+                        {/* Icon container — dark-mode aware */}
+                        <View
+                          className={`w-9 h-9 rounded-xl items-center justify-center ${
+                            t.isDarkMode ? 'bg-blue-900/40' : 'bg-blue-100'
+                          }`}
+                        >
                           <Feather name={permission.icon} size={16} color="#2563EB" />
                         </View>
                         <View className="ml-3 flex-1">
-                          <Text className={`font-bold ${t.text}`}>{permission.title}</Text>
+                          <Text className={`font-bold text-sm ${t.text}`}>{permission.title}</Text>
                           <Text className={`text-xs ${t.textMuted}`}>{permission.description}</Text>
                         </View>
                       </View>
 
                       {granted ? (
-                        <View className="px-2 py-1 rounded-lg bg-emerald-100">
-                          <Text className="text-[10px] font-bold text-emerald-700">Granted</Text>
+                        <View
+                          className={`px-2 py-1 rounded-lg ${
+                            t.isDarkMode ? 'bg-emerald-900/40' : 'bg-emerald-100'
+                          }`}
+                        >
+                          <Text
+                            className={`text-[10px] font-bold ${
+                              t.isDarkMode ? 'text-emerald-400' : 'text-emerald-700'
+                            }`}
+                          >
+                            Granted
+                          </Text>
                         </View>
                       ) : cannotAskAgain ? (
+                        /* Settings button — visible in dark mode */
                         <TouchableOpacity
                           onPress={() => Linking.openSettings()}
-                          className="px-3 py-2 rounded-xl bg-slate-900"
+                          className={`px-3 py-2 rounded-xl border ${t.border} ${t.bgSurface}`}
                           activeOpacity={0.8}
                         >
-                          <Text className="text-white text-[10px] font-black uppercase">Settings</Text>
+                          <Text className={`text-[10px] font-black uppercase ${t.text}`}>
+                            Settings
+                          </Text>
                         </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
@@ -184,7 +224,7 @@ export default function AppPermissionsModal({ visible, onDone }: AppPermissionsM
                           disabled={requesting}
                         >
                           <Text className="text-white text-[10px] font-black uppercase">
-                            {requesting ? "Requesting" : "Allow"}
+                            {requesting ? "Requesting…" : "Allow"}
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -195,9 +235,10 @@ export default function AppPermissionsModal({ visible, onDone }: AppPermissionsM
             </View>
           )}
 
+          {/* Footer button — visible border in dark mode */}
           <TouchableOpacity
             onPress={onDone}
-            className={`mt-5 h-12 rounded-2xl border items-center justify-center ${t.border} ${t.bgCard}`}
+            className={`mt-5 h-12 rounded-2xl border items-center justify-center ${t.border} ${t.bgSurface}`}
             activeOpacity={0.85}
           >
             <Text className={`font-black uppercase tracking-widest text-xs ${t.text}`}>

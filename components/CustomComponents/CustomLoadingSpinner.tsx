@@ -3,7 +3,7 @@ import { View, Text, Animated, Easing } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from '@/hooks/useTheme';
 
-export default function CustomLoadingSpinner({ message = "Gathering local experts..." }) {
+export default function CustomLoadingSpinner({ message = "Loading…" }) {
   const { t } = useTheme();
   const rotateValue = useRef(new Animated.Value(0)).current;
 
@@ -26,13 +26,13 @@ export default function CustomLoadingSpinner({ message = "Gathering local expert
   return (
     <View className={`flex-1 justify-center items-center ${t.bgPage}`}>
       <View className="items-center justify-center">
-        
+
         <View className={`${t.brandSoft} w-24 h-24 rounded-[40px] items-center justify-center shadow-sm`}>
           <Animated.View style={{ transform: [{ rotate }] }}>
-            <MaterialCommunityIcons 
-              name="loading" 
-              size={42} 
-              color={t.accent} 
+            <MaterialCommunityIcons
+              name="loading"
+              size={42}
+              color={t.accent}
             />
           </Animated.View>
         </View>
@@ -46,7 +46,8 @@ export default function CustomLoadingSpinner({ message = "Gathering local expert
           </Text>
         </View>
 
-        <View className="absolute bottom-12">
+        {/* Watermark inside the column — visible in any container size */}
+        <View className="mt-6">
           <Text className="text-blue-600/30 font-black tracking-[4px] text-[10px]">
             KABAYAN
           </Text>

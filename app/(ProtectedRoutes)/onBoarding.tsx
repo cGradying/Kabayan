@@ -66,6 +66,7 @@ export default function OnBoarding() {
     return (
       <ImageBackground
         source={{ uri: SLIDES[2].bg }}
+        defaultSource={require('@/assets/images/splash-icon.png')}
         className="flex-1"
         resizeMode="cover"
       >
@@ -130,6 +131,7 @@ export default function OnBoarding() {
         renderItem={({ item }) => (
           <ImageBackground
             source={{ uri: item.bg }}
+            defaultSource={require('@/assets/images/splash-icon.png')}
             style={{ width }}
             className="flex-1"
             resizeMode="cover"
@@ -164,15 +166,16 @@ export default function OnBoarding() {
                   {item.subtitle}
                 </Text>
 
-                {/* Dot indicators */}
+                {/* Dot indicators — h-[4px] for visibility on budget Android screens */}
                 <View className="flex-row gap-x-2 mb-8">
                   {SLIDES.map((_, i) => (
                     <View
                       key={i}
-                      className="h-1.5 rounded-full"
+                      className="rounded-full"
                       style={{
-                        width: i === activeIndex ? 24 : 8,
-                        backgroundColor: i === activeIndex ? item.accent : 'rgba(255,255,255,0.3)',
+                        height: 4,
+                        width: i === activeIndex ? 28 : 8,
+                        backgroundColor: i === activeIndex ? item.accent : 'rgba(255,255,255,0.35)',
                       }}
                     />
                   ))}

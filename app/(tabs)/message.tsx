@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { View, Text, TouchableOpacity, Image, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TouchableOpacity, Image, TextInput } from "react-native";
 import { LegendList } from "@legendapp/list";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { api, getStoredUser } from "@/utils/api";
 import CustomModal from "@/components/CustomComponents/CustomModalComponent";
+import { KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Conversation = {
@@ -84,7 +85,6 @@ export default function Inbox() {
   useEffect(() => {
     if (!userId) return;
     fetchThreads();
-    // Realtime channels removed — polling replaces realtime
   }, [userId, fetchThreads]);
 
   const filteredThreads = useMemo(() => {
@@ -104,7 +104,7 @@ export default function Inbox() {
       keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       className={`flex-1 ${t.bgPage}`}
     >
-      <View className={`pb-6 px-6 ${t.bgCard} border-b ${t.border}`} style={{ paddingTop:  12 }}>
+      <View className={`pb-6 px-6 ${t.bgCard} border-b ${t.border}`} style={{ paddingTop: 12 }}>
         <View className={`flex-row items-center mt-4 px-4 h-12 rounded-2xl ${t.bgSurface} border ${t.border}`}>
           <Feather name="search" size={16} color={t.icon} />
           <TextInput
@@ -119,9 +119,16 @@ export default function Inbox() {
       </View>
 
       {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
-          <Text className={`mt-2 ${t.textMuted}`}>Loading messages…</Text>
+        <View className="flex-1 px-6 pt-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <View key={i} className="flex-row items-center py-5 border-b" style={{ borderColor: t.isDarkMode ? '#1E293B' : '#E2E8F0' }}>
+              <View className={`w-14 h-14 rounded-full ${t.isDarkMode ? 'bg-[#1A2540]' : 'bg-[#E2E8F0]'}`} />
+              <View className="flex-1 ml-4 gap-2">
+                <View className={`h-4 w-32 rounded ${t.isDarkMode ? 'bg-[#1A2540]' : 'bg-[#E2E8F0]'}`} />
+                <View className={`h-3 w-48 rounded ${t.isDarkMode ? 'bg-[#1A2540]' : 'bg-[#E2E8F0]'}`} />
+              </View>
+            </View>
+          ))}
         </View>
       ) : (
         <LegendList
@@ -130,8 +137,16 @@ export default function Inbox() {
           estimatedItemSize={90}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
-            <View className="py-16 items-center">
-              <Text className={`text-sm ${t.textMuted}`}>No messages</Text>
+            <View className={`mx-4 mt-6 p-8 rounded-[28px] border ${t.border} ${t.bgCard} items-center`}>
+              <View className={`w-20 h-20 rounded-[28px] ${t.brandSoft} items-center justify-center mb-4`}>
+                <Ionicons name="chatbubbles-outline" size={36} color="#2563EB" />
+              </View>
+              <Text className={`text-lg font-black text-center ${t.text}`}>
+                {search.trim() ? "No matches found" : "No conversations yet"}
+              </Text>
+              <Text className={`mt-2 text-sm text-center leading-5 ${t.textMuted}`}>
+                {search.trim() ? "Try a different name or keyword." : "Apply to a job or message a vendor to start."}
+              </Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -148,13 +163,13 @@ export default function Inbox() {
                     },
                   })
                 }
-                className={`flex-row items-center p-5 border-b ${t.border} active:bg-slate-50`}
+                className={`flex-row items-center p-5 border-b ${t.border} ${t.isDarkMode ? 'active:bg-[#141C2E]' : 'active:bg-slate-100'}`}
               >
                 <View className="relative">
                   {item.otherAvatarUrl ? (
-                    <Image source={{ uri: item.otherAvatarUrl }} className="w-14 h-14 rounded-[20px]" />
+                    <Image source={{ uri: item.otherAvatarUrl }} className="w-14 h-14 rounded-full" />
                   ) : (
-                    <View className="w-14 h-14 rounded-[20px] bg-slate-200 items-center justify-center">
+                    <View className="w-14 h-14 rounded-full bg-slate-200 items-center justify-center">
                       <Text className="text-slate-600 font-black text-lg">{item.otherDisplayName.slice(0, 1).toUpperCase()}</Text>
                     </View>
                   )}
@@ -170,7 +185,7 @@ export default function Inbox() {
                   </Text>
                   <View className="flex-row items-center mt-2">
                     <View className={`${t.brandSoft} px-2 py-0.5 rounded-md`}>
-                      <Text className={`text-[9px] font-black uppercase ${t.brand}`}>
+                      <Text className={`text-[10px] font-black uppercase ${t.brand}`}>
                         {item.jobTitle ? `Job: ${item.jobTitle}` : "Direct Message"}
                       </Text>
                     </View>

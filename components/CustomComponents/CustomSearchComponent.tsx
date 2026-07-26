@@ -33,10 +33,12 @@ export default function CustomSearchComponent({
         />
         {showMapButton ? (
           <>
-            <View className={`w-[1px] h-6 mx-3 ${t.border}`} />
+            <View style={{ width: 1, height: 24, marginHorizontal: 12, backgroundColor: t.isDarkMode ? '#1E293B' : '#E2E8F0' }} />
             <Pressable
               onPress={onNavigateToMap}
               className="p-1 active:opacity-50"
+              accessibilityLabel="View map"
+              accessibilityRole="button"
             >
               <FontAwesome5 name="map-marked-alt" color={t.accent} size={18} />
             </Pressable>

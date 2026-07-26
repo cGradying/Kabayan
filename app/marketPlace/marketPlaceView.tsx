@@ -470,25 +470,12 @@ export default function MarketPlaceView() {
             </View>
           </View>
 
-          <View className={`mt-6 px-5 py-5 rounded-[28px] border ${t.border} ${t.bgSurface}`}>
-            <View className="flex-row items-start justify-between">
-              <View className="flex-1 pr-4">
-                <Text className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Store Item</Text>
-                <Text className={`mt-2 text-base font-black ${t.text}`}>{featured.name}</Text>
-                <Text className={`mt-1 text-sm font-semibold ${t.textMuted}`}>{featured.store_name}</Text>
-              </View>
-              <View className="items-end">
-                <Text className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Price</Text>
-                <Text className={`mt-2 text-xl font-black ${t.price}`}>₱{featured.price.toLocaleString()}</Text>
-              </View>
+          {featured.description ? (
+            <View className={`mt-6 px-5 py-5 rounded-[28px] border ${t.border} ${t.bgSurface}`}>
+              <Text className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Description</Text>
+              <Text className={`mt-3 text-sm leading-6 ${t.textMuted}`}>{featured.description}</Text>
             </View>
-            {featured.description ? (
-              <Text className={`mt-4 text-sm leading-6 ${t.textMuted}`}>
-                {featured.description}
-              </Text>
-            ) : null}
-            
-          </View>
+          ) : null}
     {!isOwner ? (
               <View className={`mt-5 rounded-[22px] border px-4 py-4 ${t.border} ${t.bgCard}`}>
                 <View className="flex-row items-start justify-between">
@@ -511,7 +498,7 @@ export default function MarketPlaceView() {
             <TouchableOpacity onPress={() => router.push({ pathname: "/map/mapView", params: { location: featured.location_label } })}>
               <InfoChip icon="map-pin" label={featured.location_label} t={t} />
             </TouchableOpacity>
-            <InfoChip icon="tag" label={`Store • ${featured.category}`} t={t} />
+            <InfoChip icon="tag" label={`${featured.category}`} t={t} />
           </View>
 
           {isOwner ? (
@@ -530,7 +517,7 @@ export default function MarketPlaceView() {
                   className={`h-12 rounded-2xl items-center justify-center ${featured.is_open ? "bg-rose-600" : "bg-emerald-600"}`}
                 >
                   <Text className="text-white text-xs font-black uppercase tracking-widest">
-                    {updatingOpenState ? "Updating..." : featured.is_open ? "Close Store Item" : "Reopen Store Item"}
+                    {updatingOpenState ? "Updating..." : featured.is_open ? "Close Listing" : "Reopen Listing"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -545,7 +532,7 @@ export default function MarketPlaceView() {
                   className="mt-4 h-12 rounded-2xl items-center justify-center bg-slate-900"
                 >
                   <Text className="text-white text-xs font-black uppercase tracking-widest">
-                    {deletingStore ? "Deleting Store..." : "Delete Store"}
+                    {deletingStore ? "Deleting..." : "Delete Store & Listings"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -614,7 +601,7 @@ export default function MarketPlaceView() {
             onPress={() => setShowModal(true)}
             className="bg-blue-600 flex-1 h-14 rounded-2xl items-center justify-center shadow-lg shadow-blue-500/40"
           >
-            <Text className="text-white font-black uppercase text-sm tracking-widest">Add Store Item</Text>
+                  <Text className="text-white font-black uppercase text-sm tracking-widest">Add Listing</Text>
           </TouchableOpacity>
         </SafeAreaView>
       ) : (

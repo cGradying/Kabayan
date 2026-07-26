@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, SafeAreaView, View, Text, TextInput, TouchableOpacity, ScrollView, Image, KeyboardAvoidingView, Platform } from "react-native";
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
@@ -171,20 +171,23 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}
         className="flex-1 justify-end"
       >
-        <SafeAreaView className="flex-1 bg-black/50 justify-end">
-          <View className={`max-h-[85%] bg-white rounded-t-[32px] p-6 ${t.bgCard}`}>
+        <View style={{ paddingBottom: insets.bottom }} className="flex-1 bg-black/50 justify-end">
+          <View className={`max-h-[85%] rounded-t-[32px] p-6 ${t.bgCard}`}>
+            <View className="items-center mb-3">
+              <View className={`w-10 h-1 rounded-full ${t.isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`} />
+            </View>
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
                 <View className="w-10 h-10 rounded-2xl bg-emerald-100 items-center justify-center mr-3">
                   <Feather name="shopping-bag" size={20} color="#059669" />
                 </View>
                 <View>
-                  <Text className="text-xl font-black text-slate-900">Add Store Item</Text>
-                  <Text className="text-xs text-slate-500">Publish an item on your store menu for customers to browse and order.</Text>
+                  <Text className={`text-xl font-black ${t.text}`}>Add Store Item</Text>
+                  <Text className={`text-xs ${t.textMuted}`}>Publish an item on your store menu for customers to browse and order.</Text>
                 </View>
               </View>
               <TouchableOpacity onPress={onClose}>
-                <Ionicons name="close" size={22} color="#475569" />
+                <Ionicons name="close" size={22} color={t.icon} />
               </TouchableOpacity>
             </View>
 
@@ -200,6 +203,7 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 value={storeName}
                 onChangeText={setStoreName}
                 icon="home"
+                t={t}
               />
               <Field
                 label="Item name"
@@ -207,6 +211,7 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 value={name}
                 onChangeText={setName}
                 icon="edit-3"
+                t={t}
               />
               <Field
                 label="Category"
@@ -214,6 +219,7 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 value={category}
                 onChangeText={setCategory}
                 icon="tag"
+                t={t}
               />
               <Field
                 label="Price (PHP)"
@@ -221,6 +227,7 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 value={price}
                 onChangeText={setPrice}
                 icon="currency-php"
+                t={t}
               />
               <Field
                 label="Store area"
@@ -228,6 +235,7 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 value={location}
                 onChangeText={setLocation}
                 icon="map-pin"
+                t={t}
               />
               <Field
                 label="Description"
@@ -236,6 +244,7 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 onChangeText={setDescription}
                 icon="file-text"
                 multiline
+                t={t}
               />
               <Field
                 label="Allergens / Warnings"
@@ -244,6 +253,7 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 onChangeText={setAllergens}
                 icon="alert-triangle"
                 multiline
+                t={t}
               />
               <Field
                 label="Pickup, storage, or prep notes"
@@ -252,29 +262,40 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 onChangeText={setStorage}
                 icon="clock"
                 multiline
+                t={t}
               />
 
-              <Text className="text-[10px] font-black uppercase tracking-[2px] text-slate-400 mb-2 ml-1">Photos</Text>
+              <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>Photos</Text>
               <View className="flex-row gap-3 mb-4">
-                <TouchableOpacity onPress={handlePickForeground} className="flex-1 h-36 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50 items-center justify-center">
+                <TouchableOpacity onPress={handlePickForeground} className={`flex-1 h-36 rounded-2xl border-2 border-dashed items-center justify-center overflow-hidden ${t.isDarkMode ? 'border-emerald-700 bg-emerald-900/20' : 'border-emerald-300 bg-emerald-50'}`}>
                   {image?.uri ? (
                     <Image source={{ uri: image.uri }} className="w-full h-full rounded-2xl" />
                   ) : (
-                    <Text className="text-emerald-700 font-semibold">Add store item photo</Text>
+                    <View className="items-center px-3">
+                      <Feather name="image" size={22} color={t.isDarkMode ? '#059669' : '#059669'} />
+                      <Text className={`text-xs font-semibold mt-1 text-center ${t.isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                        Item Photo
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handlePickBackground} className="flex-1 h-36 rounded-2xl border border-dashed border-blue-300 bg-blue-50 items-center justify-center">
+                <TouchableOpacity onPress={handlePickBackground} className={`flex-1 h-36 rounded-2xl border-2 border-dashed items-center justify-center overflow-hidden ${t.isDarkMode ? 'border-blue-700 bg-blue-900/20' : 'border-blue-300 bg-blue-50'}`}>
                   {backgroundUri ? (
                     <Image source={{ uri: backgroundUri }} className="w-full h-full rounded-2xl" />
                   ) : (
-                    <Text className="text-blue-700 font-semibold">Add banner</Text>
+                    <View className="items-center px-3">
+                      <Feather name="layout" size={22} color={t.isDarkMode ? '#2563EB' : '#2563EB'} />
+                      <Text className={`text-xs font-semibold mt-1 text-center ${t.isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>
+                        Store Banner
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
 
-              <View className="mt-2">
-                <Text className="text-[11px] font-black text-slate-500 uppercase tracking-[1.5px] mb-2">Store Listing Tips</Text>
-                <Text className="text-slate-600 leading-5">
+              <View className="mt-2 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                <Text className={`text-[10px] font-black uppercase tracking-[1.5px] mb-1 ${t.success}`}>Store Listing Tips</Text>
+                <Text className={`text-xs leading-5 ${t.textMuted}`}>
                   Focus on the menu item, price clarity, prep or delivery notes, and details that help customers order with confidence.
                 </Text>
               </View>
@@ -286,16 +307,18 @@ export default function MarketModal({ visible, onClose, onCreated }: MarketModal
                 activeOpacity={0.9}
               >
                 <Text className="text-white font-black uppercase text-base tracking-widest">
-                  {saving ? "Saving…" : "Publish To Store"}
+                  {saving ? "Saving\u2026" : "Publish To Store"}
                 </Text>
               </TouchableOpacity>
               {error && (
-                <Text className="mt-3 text-red-500 text-sm font-semibold">{error}</Text>
+                <View className="mt-3 p-3 rounded-2xl bg-red-500/10 border border-red-400/30">
+                  <Text className="text-red-500 text-xs font-semibold">{error}</Text>
+                </View>
               )}
               <View className="h-6" />
             </ScrollView>
           </View>
-        </SafeAreaView>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -308,22 +331,24 @@ type FieldProps = {
   placeholder: string;
   icon: keyof typeof Feather.glyphMap;
   multiline?: boolean;
+  t: any;
 };
 
-function Field({ label, value, onChangeText, placeholder, icon, multiline }: FieldProps) {
+function Field({ label, value, onChangeText, placeholder, icon, multiline, t }: FieldProps) {
   return (
     <View className="mb-4">
-      <Text className="text-[10px] font-black uppercase tracking-[2px] text-slate-400 mb-2 ml-1">{label}</Text>
-      <View className={`flex-row items-center px-4 rounded-2xl border border-slate-200 bg-slate-50 ${multiline ? "py-3" : "h-14"}`}>
-        <Feather name={icon} size={18} color="#475569" />
+      <Text className={`text-[10px] font-black uppercase tracking-[2px] mb-2 ml-1 ${t.textMuted}`}>{label}</Text>
+      <View className={`flex-row items-center px-4 rounded-2xl border ${t.border} ${t.bgSurface} ${multiline ? "py-3" : "h-14"}`}>
+        <Feather name={icon} size={18} color={t.icon} />
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={t.isDarkMode ? "#475569" : "#94A3B8"}
           multiline={multiline}
+          keyboardType={icon === "dollar-sign" ? "numeric" : "default"}
           textAlignVertical={multiline ? "top" : "center"}
-          className="flex-1 ml-3 font-semibold text-slate-900"
+          className={`flex-1 ml-3 font-semibold ${t.text}`}
           style={multiline ? { minHeight: 80 } : undefined}
         />
       </View>

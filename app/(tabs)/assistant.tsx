@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -29,10 +30,44 @@ const STARTERS = [
   "Cheap meals nearby",
 ];
 
+function AnimatedDot({ delay, dotColor }: { delay: number; dotColor: string }) {
+  const opacity = useRef(new Animated.Value(0.2)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.2, duration: 600, useNativeDriver: true }),
+      ])
+    );
+    const timeout = setTimeout(() => animation.start(), delay);
+    return () => {
+      clearTimeout(timeout);
+      animation.stop();
+    };
+  }, []);
+
+  return (
+    <Animated.View
+      style={{ opacity, width: 8, height: 8, borderRadius: 4, marginHorizontal: 2, backgroundColor: dotColor }}
+    />
+  );
+}
+
+function TypingIndicator({ surface, mutedText }: { surface: string; mutedText: string }) {
+  return (
+    <View className="mb-4 flex-row items-center self-start rounded-2xl px-4 py-3.5 border border-[#E2E8F0]" style={{ backgroundColor: surface }}>
+      <Text className="text-xs font-bold mr-2" style={{ color: mutedText }}>Kabayan AI</Text>
+      {[0, 1, 2].map(i => <AnimatedDot key={i} delay={i * 200} dotColor={mutedText} />)}
+    </View>
+  );
+}
+
 export default function AssistantTab() {
   const { t } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "welcome",
@@ -83,6 +118,10 @@ export default function AssistantTab() {
     [context, input, sending]
   );
 
+  const surface = t.isDarkMode ? '#1A2540' : '#F1F5F9';
+  const mutedText = t.isDarkMode ? '#64748B' : '#94A3B8';
+  const borderColor = t.isDarkMode ? '#1E293B' : '#E2E8F0';
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -91,12 +130,12 @@ export default function AssistantTab() {
       className={`flex-1 ${t.bgPage}`}
     >
       <View
-        className={`px-5 pb-4 border-b ${t.border} ${t.bgPage}`}
-        style={{ paddingTop: insets.top + 10 }}
+        className="px-5 pb-4"
+        style={{ backgroundColor: t.aiBannerBg, paddingTop: insets.top + 10, borderBottomWidth: 1, borderBottomColor: t.aiBannerRing }}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
-            <View className="h-11 w-11 rounded-2xl bg-blue-600 items-center justify-center">
+            <View className="h-11 w-11 rounded-2xl items-center justify-center" style={{ backgroundColor: t.aiBannerAccent }}>
               <Ionicons name="sparkles-outline" size={22} color="#FFFFFF" />
             </View>
             <View className="ml-3">
@@ -104,12 +143,24 @@ export default function AssistantTab() {
               <Text className={`text-xs font-medium ${t.textMuted}`}>Ask about jobs, stores, and what is nearby.</Text>
             </View>
           </View>
-          <TouchableOpacity
-            onPress={refreshContext}
-            className={`h-11 w-11 rounded-2xl border items-center justify-center ${t.border} ${t.bgCard}`}
-          >
-            <Ionicons name="refresh" size={18} color={t.icon} />
-          </TouchableOpacity>
+          <View className="flex-row gap-2">
+            {messages.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setMessages([])}
+                className="h-11 w-11 rounded-2xl items-center justify-center"
+                style={{ backgroundColor: surface, borderWidth: 1, borderColor }}
+                accessibilityLabel="Clear conversation"
+              >
+                <Feather name="trash-2" size={16} color={mutedText} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={refreshContext}
+              className={`h-11 w-11 rounded-2xl border items-center justify-center ${t.border} ${t.bgCard}`}
+            >
+              <Ionicons name="refresh" size={18} color={t.icon} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -120,11 +171,13 @@ export default function AssistantTab() {
         </View>
       ) : (
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 20 }}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           <View className="flex-1">
             {messages.length === 1 ? (
@@ -167,6 +220,8 @@ export default function AssistantTab() {
                 </View>
               </View>
             ))}
+
+            {sending && <TypingIndicator surface={surface} mutedText={mutedText} />}
           </View>
         </ScrollView>
       )}
@@ -186,7 +241,10 @@ export default function AssistantTab() {
           </TouchableOpacity>
         </View>
 
-        <View className={`flex-row items-end rounded-[28px] border px-4 ${t.border} ${t.bgCard}`}>
+        <View
+          className={`flex-row items-end rounded-[28px] border px-4 ${t.bgCard}`}
+          style={{ borderColor: input.trim() ? '#E45C35' : t.isDarkMode ? '#26334A' : '#D1D5DB' }}
+        >
           <TextInput
             value={input}
             onChangeText={setInput}
@@ -203,6 +261,8 @@ export default function AssistantTab() {
             className={`mb-3 ml-3 h-10 w-10 rounded-full items-center justify-center ${
               !input.trim() || sending ? "bg-slate-300" : "bg-blue-600"
             }`}
+            accessibilityLabel="Send message"
+            accessibilityHint="Sends your message to Kabayan AI"
           >
             {sending ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Feather name="arrow-up" size={18} color="#FFFFFF" />}
           </TouchableOpacity>

@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
-import { ImageBackground, TouchableOpacity, View } from "react-native";
+import { ImageBackground, TouchableOpacity, View, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useTheme } from "@/hooks/useTheme";
 
 type EntityHeroBannerProps = {
   title?: string;
@@ -31,13 +32,17 @@ const getTheme = (seed: string) => {
 };
 
 export default function EntityHeroBanner({
+  title,
+  subtitle,
+  eyebrow,
   imageUri,
   seed,
   topInset = 0,
-  height = 112,
+  height = 160,
   onBack,
 }: EntityHeroBannerProps) {
   const theme = useMemo(() => getTheme(seed), [seed]);
+  const { t } = useTheme();
 
   return (
     <View
@@ -87,15 +92,41 @@ export default function EntityHeroBanner({
         </>
       )}
 
+      {(title || eyebrow) && (
+        <View
+          className="absolute bottom-0 left-0 right-0 px-5 pb-4 z-[2]"
+          style={{ backgroundColor: imageUri ? 'rgba(15,23,42,0.55)' : 'transparent' }}
+        >
+          {eyebrow && (
+            <Text className="text-[10px] font-black uppercase tracking-[2px] text-white/70 mb-1">
+              {eyebrow}
+            </Text>
+          )}
+          {title && (
+            <Text className="text-xl font-black tracking-tight text-white">
+              {title}
+            </Text>
+          )}
+          {subtitle && (
+            <Text className="text-xs font-semibold mt-0.5 text-white/70">
+              {subtitle}
+            </Text>
+          )}
+        </View>
+      )}
+
       <View
         className="absolute left-[18px] right-[18px] z-[2] flex-row justify-between"
         style={{ top: topInset + 8 }}
       >
         <TouchableOpacity
           onPress={onBack}
-          className="h-[42px] w-[42px] items-center justify-center rounded-2xl bg-white/90"
+          className="h-[42px] w-[42px] items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: imageUri ? 'rgba(255,255,255,0.9)' : (t.isDarkMode ? '#1A2540' : 'rgba(255,255,255,0.9)'),
+          }}
         >
-          <Feather name="chevron-left" size={22} color="#0F172A" />
+          <Feather name="chevron-left" size={22} color={t.isDarkMode ? '#F0F4FF' : '#0F172A'} />
         </TouchableOpacity>
         <View className="h-[42px] w-[42px]" />
       </View>

@@ -1,6 +1,7 @@
 import CustomLoading from "@/components/CustomComponents/CustomLoadingSpinner";
 import AppPermissionsModal from "@/components/PermissionModal/AppPermissionsModal";
 import useLandingPage from "@/hooks/useLandingPage";
+import { useTheme } from "@/hooks/useTheme";
 import Drawer from "expo-router/drawer";
 import { useEffect, useState } from "react";
 import { StatusBar, View } from "react-native";
@@ -14,6 +15,7 @@ import { ImagePickerContextProvider } from "@/context/ImagePicker";
 import { storage } from "@/utils/MMKVConfig";
 
 export default function RootLayout() {
+  const { t } = useTheme();
   const { getIsFirstOpened } = useLandingPage();
   const [FirstOpened, setFirstOpened] = useState<boolean | null>(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
@@ -46,19 +48,22 @@ export default function RootLayout() {
   }
 
    if (FirstOpened) {
-    // change this later to be the landing page
     return <Index  />
    }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle={t.isDarkMode ? 'light-content' : 'dark-content'} />
         <ImagePickerContextProvider>
           <DocumentPickerContextProvider>
             <Drawer
               drawerContent={(props) => <CustomDrawerContent {...props} />}
-              screenOptions={{ headerShown: false }}
+              screenOptions={{
+                headerShown: false,
+                drawerStyle: { width: '78%' },
+                overlayColor: 'rgba(0,0,0,0.45)',
+              }}
             >
               <Drawer.Screen
                 name="(tabs)"

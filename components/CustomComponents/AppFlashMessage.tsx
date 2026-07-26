@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { TouchableOpacity, View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -8,6 +8,8 @@ export type FlashMessage = {
   title: string;
   description?: string;
   variant?: FlashVariant;
+  /** Auto-dismiss delay in ms. Defaults to 3000. Pass 0 to disable auto-dismiss. */
+  duration?: number;
 };
 
 type AppFlashMessageProps = {
@@ -15,7 +17,16 @@ type AppFlashMessageProps = {
   onClose: () => void;
 };
 
-const paletteByVariant: Record<FlashVariant, { bg: string; border: string; text: string; icon: string; iconName: keyof typeof Ionicons.glyphMap }> = {
+const paletteByVariant: Record<
+  FlashVariant,
+  {
+    bg: string;
+    border: string;
+    text: string;
+    icon: string;
+    iconName: keyof typeof Ionicons.glyphMap;
+  }
+> = {
   info: {
     bg: "#EFF6FF",
     border: "#BFDBFE",
@@ -47,6 +58,15 @@ const paletteByVariant: Record<FlashVariant, { bg: string; border: string; text:
 };
 
 export default function AppFlashMessage({ message, onClose }: AppFlashMessageProps) {
+  const duration = message?.duration ?? 3000;
+
+  useEffect(() => {
+    if (!message) return;
+    if (duration === 0) return; // caller opted out of auto-dismiss
+    const timer = setTimeout(onClose, duration);
+    return () => clearTimeout(timer);
+  }, [message, duration, onClose]);
+
   if (!message) return null;
 
   const variant = message.variant ?? "info";

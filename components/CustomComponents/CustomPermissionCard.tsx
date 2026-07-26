@@ -82,7 +82,7 @@ export default function CustomPermissionGate({
       </View>
 
       <View className="absolute bottom-10 left-0 right-0 items-center px-12">
-        <View className="flex-row items-center bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full">
+        <View className={`flex-row items-center px-4 py-2 rounded-full ${t.bgSurface} border ${t.border}`}>
           <MaterialCommunityIcons name="shield-check" size={14} color="#10B981" />
           <Text className={`ml-2 text-[10px] font-bold ${t.textMuted}`}>
             Kabayan Security & Privacy

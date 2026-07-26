@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from "react-native";
+import React, { useCallback, useMemo, useRef, useEffect, useState } from "react";
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Animated, RefreshControl } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import { api, getStoredUser } from "@/utils/api";
 import humanizeError from "@/utils/humanizeError";
@@ -21,34 +21,103 @@ type ApplicantRow = {
   resume_uri: string | null;
 };
 
+type EmployerJob = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+function ApplicantSkeleton({ t }: { t: ReturnType<typeof useTheme>["t"] }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
+  return (
+    <Animated.View style={{ opacity }} className={`mb-5 rounded-3xl ${t.bgCard} border ${t.border} overflow-hidden`}>
+      <View className={`px-5 py-4 border-b ${t.border}`}>
+        <View className={`h-4 w-40 rounded-full ${t.bgSurface} mb-2`} />
+        <View className={`h-3 w-24 rounded-full ${t.bgSurface}`} />
+      </View>
+      <View className="p-4 gap-3">
+        {[1, 2].map((i) => (
+          <View key={i} className={`p-4 rounded-2xl border ${t.border} ${t.bgSurface}`}>
+            <View className="flex-row items-center">
+              <View className={`w-10 h-10 rounded-full ${t.bgCard}`} />
+              <View className="ml-3 flex-1">
+                <View className={`h-4 w-32 rounded-full ${t.bgCard} mb-2`} />
+                <View className={`h-3 w-20 rounded-full ${t.bgCard}`} />
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+    </Animated.View>
+  );
+}
+
 export default function JobApplicants() {
   const { t } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ jobId?: string }>();
-  const [rows, setRows] = useState<ApplicantRow[]>([]);
+  const [applicants, setApplicants] = useState<ApplicantRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
   const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
+  const [employerJobs, setEmployerJobs] = useState<EmployerJob[]>([]);
 
-  const loadApplicants = useCallback(async () => {
+  const loadApplicants = useCallback(async (isRefresh = false) => {
     let active = true;
     try {
-      setLoading(true);
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
       const user = await getStoredUser();
       const employerId = user?.id;
       if (!employerId) {
-        if (active) {
-          setRows([]);
-          setLoading(false);
-        }
+        if (active) { setApplicants([]); if (!isRefresh) setLoading(false); setRefreshing(false); }
         return;
       }
 
-      const data = await api.get<any[]>("/api/applications");
+      const jobs = await api.get<any[]>("/api/jobs");
+      const myJobs = (jobs ?? []).filter((j: any) => j.employer_id === employerId);
+      if (active) setEmployerJobs(myJobs.map((j: any) => ({ id: j.id, title: j.title, status: j.status })));
+
+      const allApplicants: ApplicantRow[] = [];
+      for (const job of myJobs) {
+        try {
+          const data = await api.get<any[]>(`/api/jobs/${job.id}/applicants`);
+          for (const row of (data ?? [])) {
+            allApplicants.push({
+              job_id: row.job_id || job.id,
+              job_title: row.job_title || job.title,
+              application_id: row.application_id || row.id,
+              applicant_id: row.applicant_id,
+              applicant_name: row.applicant_name || "Unknown",
+              applicant_avatar_url: row.applicant_avatar_url || null,
+              cover_letter: row.cover_letter || null,
+              expected_rate: row.expected_rate ?? null,
+              status: row.status || "pending",
+              applied_at: row.applied_at || row.created_at,
+              availability_note: row.availability_note || null,
+              resume_uri: row.resume_uri || null,
+            });
+          }
+        } catch {
+          // skip jobs that fail
+        }
+      }
 
       if (active) {
-        const nextRows = (data ?? []) as ApplicantRow[];
-        setRows(params.jobId ? nextRows.filter((row) => row.job_id === params.jobId) : nextRows);
+        const filtered = params.jobId
+          ? allApplicants.filter((a) => a.job_id === params.jobId)
+          : allApplicants;
+        setApplicants(filtered);
       }
     } catch (err) {
       if (active) {
@@ -56,23 +125,19 @@ export default function JobApplicants() {
         Alert.alert("Applicants Error", message);
       }
     } finally {
-      if (active) setLoading(false);
+      if (active) { setLoading(false); setRefreshing(false); }
     }
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [params.jobId]);
 
   useFocusEffect(
-    useCallback(() => {
-      loadApplicants();
-    }, [loadApplicants])
+    useCallback(() => { loadApplicants(); }, [loadApplicants])
   );
 
   const groupedByJob = useMemo(() => {
     const grouped = new Map<string, { jobId: string; jobTitle: string; applicants: ApplicantRow[] }>();
-    rows.forEach((row) => {
+    applicants.forEach((row) => {
       if (!grouped.has(row.job_id)) {
         grouped.set(row.job_id, {
           jobId: row.job_id,
@@ -83,11 +148,10 @@ export default function JobApplicants() {
       grouped.get(row.job_id)?.applicants.push(row);
     });
     return Array.from(grouped.values());
-  }, [rows]);
+  }, [applicants]);
 
   const openApplicantChat = async (row: ApplicantRow) => {
     if (openingChatFor) return;
-
     setOpeningChatFor(row.application_id);
     try {
       const data = await api.post<string>("/api/conversations/job", {
@@ -95,14 +159,9 @@ export default function JobApplicants() {
         employer_id: row.applicant_id,
       });
       if (!data) throw new Error("Unable to open conversation.");
-
       router.push({
         pathname: "/chatRoom/chatRoom",
-        params: {
-          roomId: data,
-          name: row.applicant_name,
-          jobTitle: row.job_title,
-        },
+        params: { roomId: data, name: row.applicant_name, jobTitle: row.job_title },
       });
     } catch (err) {
       const message = humanizeError(err, "Unable to message applicant.");
@@ -114,12 +173,10 @@ export default function JobApplicants() {
 
   const updateApplicationStatus = async (row: ApplicantRow, status: "accepted" | "rejected") => {
     if (updatingApplicationId) return;
-
     setUpdatingApplicationId(row.application_id);
     try {
       const data = await api.patch<any>(`/api/applications/${row.application_id}/status`, { status });
-
-      setRows((prev) =>
+      setApplicants((prev) =>
         prev.map((item) =>
           item.application_id === row.application_id
             ? { ...item, status: data?.status ?? status }
@@ -136,9 +193,21 @@ export default function JobApplicants() {
 
   if (loading) {
     return (
-      <View className={`flex-1 items-center justify-center ${t.bgPage}`}>
-        <ActivityIndicator />
-        <Text className={`mt-2 ${t.textMuted}`}>Loading applicants…</Text>
+      <View className={`flex-1 ${t.bgPage}`}>
+        <View className={`px-6 pt-12 pb-4 border-b ${t.border} ${t.bgCard}`}>
+          <View className="flex-row items-center">
+            <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2 rounded-xl" accessibilityLabel="Go back" accessibilityRole="button">
+              <Ionicons name="chevron-back" size={22} color={t.accent} />
+            </TouchableOpacity>
+            <View>
+              <View className={`h-6 w-40 rounded-full ${t.bgSurface} mb-1`} />
+              <View className={`h-3 w-52 rounded-full ${t.bgSurface}`} />
+            </View>
+          </View>
+        </View>
+        <View className="p-4">
+          {[1, 2].map((i) => <ApplicantSkeleton key={i} t={t} />)}
+        </View>
       </View>
     );
   }
@@ -147,13 +216,15 @@ export default function JobApplicants() {
     <View className={`flex-1 ${t.bgPage}`}>
       <View className={`px-6 pt-12 pb-4 border-b ${t.border} ${t.bgCard}`}>
         <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2 rounded-xl">
-            <Ionicons name="chevron-back" size={22} color={t.text} />
+          <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2 rounded-xl" accessibilityLabel="Go back" accessibilityRole="button">
+            <Ionicons name="chevron-back" size={22} color={t.accent} />
           </TouchableOpacity>
           <View>
-            <Text className={`text-2xl font-black ${t.text}`}>{params.jobId ? "Applicants For This Job" : "Job Applicants"}</Text>
+            <Text className={`text-2xl font-black ${t.text}`}>
+              {params.jobId ? "Applicants For This Job" : "Job Applicants"}
+            </Text>
             <Text className={`text-xs mt-1 ${t.textMuted}`}>
-              {params.jobId ? "Review applicants for this posting and message them directly." : "See who applied and contact them directly."}
+              {params.jobId ? "Review who applied to your posting." : "See who applied to your jobs and message them directly."}
             </Text>
           </View>
         </View>
@@ -161,33 +232,41 @@ export default function JobApplicants() {
 
       {groupedByJob.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
-          <Text className={`text-base font-semibold ${t.text}`}>No applicants yet</Text>
-          <Text className={`text-xs mt-2 text-center ${t.textMuted}`}>
-            {params.jobId ? "This job has no applications yet." : "Post jobs and applicants will appear here."}
+          <View className={`w-20 h-20 rounded-[28px] ${t.brandSoft} items-center justify-center mb-4`}>
+            <Feather name="users" size={36} color={t.accent} />
+          </View>
+          <Text className={`text-lg font-black text-center ${t.text}`}>
+            {params.jobId ? "No applicants yet" : "No one has applied yet"}
+          </Text>
+          <Text className={`mt-2 text-sm text-center leading-5 ${t.textMuted}`}>
+            {params.jobId
+              ? "This job has no applications yet. It may still appear in search results."
+              : "Post jobs and applicants will appear here grouped by posting."}
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadApplicants(true)} tintColor={t.accent} colors={[t.accent]} />}
+        >
           {groupedByJob.map((group) => (
             <View key={group.jobId} className={`mb-5 rounded-3xl border ${t.border} ${t.bgCard} overflow-hidden`}>
               <View className={`px-5 py-4 border-b ${t.border}`}>
                 <Text className={`text-lg font-black ${t.text}`}>{group.jobTitle}</Text>
                 <Text className={`text-xs ${t.textMuted}`}>{group.applicants.length} applicant{group.applicants.length === 1 ? "" : "s"}</Text>
               </View>
-
               <View className="p-4">
                 {group.applicants.map((applicant) => (
                   <View key={applicant.application_id} className={`mb-3 p-4 rounded-2xl border ${t.border} ${t.bgSurface}`}>
                     <View className="flex-row items-start justify-between">
                       <View className="flex-row flex-1 pr-3">
                         {applicant.applicant_avatar_url ? (
-                          <Image source={{ uri: applicant.applicant_avatar_url }} className="w-10 h-10 rounded-xl" />
+                          <Image source={{ uri: applicant.applicant_avatar_url }} className="w-10 h-10 rounded-full" />
                         ) : (
-                          <View className="w-10 h-10 rounded-xl bg-slate-200 items-center justify-center">
-                            <Text className="text-slate-700 font-black">{applicant.applicant_name.slice(0, 1).toUpperCase()}</Text>
+                          <View className={`w-10 h-10 rounded-full ${t.brandBg} items-center justify-center`}>
+                            <Text className="text-white font-black text-sm">{applicant.applicant_name.slice(0, 1).toUpperCase()}</Text>
                           </View>
                         )}
-
                         <View className="ml-3 flex-1">
                           <Text className={`text-sm font-black ${t.text}`}>{applicant.applicant_name}</Text>
                           <Text className={`text-[11px] ${t.textMuted}`}>Applied {new Date(applicant.applied_at).toLocaleDateString()}</Text>
@@ -196,20 +275,19 @@ export default function JobApplicants() {
                           ) : null}
                         </View>
                       </View>
-
                       <View className={`px-2 py-1 rounded-lg border ${
                         applicant.status === "accepted"
-                          ? "bg-emerald-50 border-emerald-200"
+                          ? `${t.successBg} ${t.brandBorder}`
                           : applicant.status === "rejected"
-                          ? "bg-rose-50 border-rose-200"
-                          : "bg-blue-50 border-blue-200"
+                          ? `${t.dangerBg} ${t.border}`
+                          : `${t.warningBg} ${t.border}`
                       }`}>
                         <Text className={`text-[10px] font-black uppercase ${
                           applicant.status === "accepted"
-                            ? "text-emerald-700"
+                            ? t.success
                             : applicant.status === "rejected"
-                            ? "text-rose-700"
-                            : "text-blue-700"
+                            ? t.danger
+                            : t.warning
                         }`}>{applicant.status}</Text>
                       </View>
                     </View>
@@ -222,26 +300,39 @@ export default function JobApplicants() {
                       <TouchableOpacity
                         onPress={() => updateApplicationStatus(applicant, "accepted")}
                         disabled={updatingApplicationId === applicant.application_id}
-                        className={`flex-1 h-10 rounded-xl items-center justify-center ${
-                          applicant.status === "accepted" ? "bg-emerald-600" : "bg-emerald-100"
-                        }`}
+                        style={{
+                          flex: 1,
+                          height: 40,
+                          borderRadius: 12,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: applicant.status === "accepted"
+                            ? (t.isDarkMode ? "#065F46" : "#059669")
+                            : (t.isDarkMode ? "#064E3B" : "#D1FAE5"),
+                        }}
                       >
                         <Text className={`font-black text-xs uppercase tracking-widest ${
-                          applicant.status === "accepted" ? "text-white" : "text-emerald-700"
+                          applicant.status === "accepted" ? "text-white" : t.success
                         }`}>
                           {updatingApplicationId === applicant.application_id && applicant.status !== "accepted" ? "Updating..." : "Accept"}
                         </Text>
                       </TouchableOpacity>
-
                       <TouchableOpacity
                         onPress={() => updateApplicationStatus(applicant, "rejected")}
                         disabled={updatingApplicationId === applicant.application_id}
-                        className={`flex-1 h-10 rounded-xl items-center justify-center ${
-                          applicant.status === "rejected" ? "bg-rose-600" : "bg-rose-100"
-                        }`}
+                        style={{
+                          flex: 1,
+                          height: 40,
+                          borderRadius: 12,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: applicant.status === "rejected"
+                            ? (t.isDarkMode ? "#7F1D1D" : "#DC2626")
+                            : (t.isDarkMode ? "#450A0A" : "#FEE2E2"),
+                        }}
                       >
                         <Text className={`font-black text-xs uppercase tracking-widest ${
-                          applicant.status === "rejected" ? "text-white" : "text-rose-700"
+                          applicant.status === "rejected" ? "text-white" : t.danger
                         }`}>
                           {updatingApplicationId === applicant.application_id && applicant.status !== "rejected" ? "Updating..." : "Reject"}
                         </Text>
@@ -251,7 +342,7 @@ export default function JobApplicants() {
                     <TouchableOpacity
                       onPress={() => openApplicantChat(applicant)}
                       disabled={openingChatFor === applicant.application_id}
-                      className="mt-2 h-10 rounded-xl bg-blue-600 items-center justify-center"
+                      className={`mt-2 h-10 rounded-xl ${t.brandBg} items-center justify-center`}
                     >
                       <View className="flex-row items-center">
                         <Ionicons name="chatbubble-ellipses-outline" size={14} color="white" />
