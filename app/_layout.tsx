@@ -12,7 +12,7 @@ import CustomDrawerContent from "@/components/CustomComponents/CustomDrawerConte
 import "../global.css";
 import {DocumentPickerContextProvider} from "@/context/DocumentPickerContext"
 import { ImagePickerContextProvider } from "@/context/ImagePicker";
-import { storage } from "@/utils/MMKVConfig";
+import { storage, ready } from "@/utils/MMKVConfig";
 
 export default function RootLayout() {
   const { t } = useTheme();
@@ -21,17 +21,21 @@ export default function RootLayout() {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
-    const hasOpened = getIsFirstOpened();
-    const LandingPageValue = hasOpened === undefined ? true : !hasOpened;
-    setFirstOpened(LandingPageValue);
+    ready.then(() => {
+      const hasOpened = getIsFirstOpened();
+      const LandingPageValue = hasOpened === undefined ? true : !hasOpened;
+      setFirstOpened(LandingPageValue);
+    });
   }, [getIsFirstOpened]);
 
   useEffect(() => {
     if (FirstOpened !== false) return;
-    const hasSeenPermissionModal = storage.getBoolean("app_permissions_modal_seen");
-    if (!hasSeenPermissionModal) {
-      setShowPermissionModal(true);
-    }
+    ready.then(() => {
+      const hasSeenPermissionModal = storage.getBoolean("app_permissions_modal_seen");
+      if (!hasSeenPermissionModal) {
+        setShowPermissionModal(true);
+      }
+    });
   }, [FirstOpened]);
 
   const handlePermissionModalDone = () => {

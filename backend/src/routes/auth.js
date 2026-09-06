@@ -14,8 +14,8 @@ router.post("/signup", async (req, res) => {
 
   const hash = await bcrypt.hash(password, 10);
   const u = await query(
-    "INSERT INTO users (id, email) VALUES (gen_random_uuid()::text, $1) RETURNING id",
-    [email]
+    "INSERT INTO users (id, email, password_hash) VALUES (gen_random_uuid()::text, $1, $2) RETURNING id",
+    [email, hash]
   );
   const userId = u.rows[0].id;
   await query(

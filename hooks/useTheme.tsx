@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { storage } from '@/utils/MMKVConfig';
+import { useEffect, useState } from 'react';
+import { storage, ready } from '@/utils/MMKVConfig';
 
 const DARK_MODE_KEY = 'app_dark_mode';
 
@@ -7,6 +7,13 @@ export const useTheme = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return storage.getBoolean(DARK_MODE_KEY) ?? false;
   });
+
+  useEffect(() => {
+    ready.then(() => {
+      const stored = storage.getBoolean(DARK_MODE_KEY);
+      if (stored !== undefined) setIsDarkMode(stored);
+    });
+  }, []);
 
   const toggleTheme = () => {
     setIsDarkMode((prev) => {

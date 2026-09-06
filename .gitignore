@@ -46,3 +46,8 @@ backend/node_modules
 # generated native folders
 /ios
 /android
+
+# Claude Code local files
+CLAUDE.md
+.claude
+.codegraph

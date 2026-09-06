@@ -69,6 +69,7 @@ router.patch("/:id/status", authenticate, async (req, res) => {
 router.get("/:id/applicants", authenticate, async (req, res) => {
   const job = await query("SELECT employer_id FROM jobs WHERE id = $1", [req.params.id]);
   if (job.rows.length === 0) return res.status(404).json({ error: "Job not found" });
+  if (job.rows[0].employer_id !== req.userId) return res.status(403).json({ error: "Unauthorized" });
 
   const result = await query(
     `SELECT ja.id, ja.job_id, ja.applicant_id, ja.cover_letter, ja.expected_rate,
