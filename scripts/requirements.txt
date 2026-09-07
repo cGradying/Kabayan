@@ -1,0 +1,4 @@
+# Only needed for the optional Facebook adapter (scripts/ingest.py --source facebook).
+# The Overpass/OSM path (the default) needs nothing beyond the Python 3 stdlib.
+facebook-scraper
+lxml_html_clean  # facebook-scraper's requests_html dep splits this out separately now

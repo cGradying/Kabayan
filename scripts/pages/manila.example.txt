@@ -1,0 +1,4 @@
+# One public Facebook vendor page name/slug per line, e.g. "someeatery.manila"
+# (from facebook.com/someeatery.manila). Lines starting with # are ignored.
+# Manila-only for the first ingest pass — Quezon City and Antipolo pages go
+# in scripts/pages/quezon_city.txt and scripts/pages/antipolo.txt later.

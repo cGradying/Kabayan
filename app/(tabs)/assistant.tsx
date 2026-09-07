@@ -14,13 +14,15 @@ import { useRouter } from "expo-router";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
-import { getAssistantReply, loadAssistantContext } from "@/utils/aiAssistant";
+import { queryAssistant, type AssistantAssessment, type AssistantSource } from "@/utils/aiAssistant";
 import humanizeError from "@/utils/humanizeError";
 
 type AssistantMessage = {
   id: string;
   role: "assistant" | "user";
   text: string;
+  assessment?: AssistantAssessment;
+  sources?: AssistantSource[];
 };
 
 const STARTERS = [
@@ -63,6 +65,73 @@ function TypingIndicator({ surface, mutedText }: { surface: string; mutedText: s
   );
 }
 
+const STAGE_LABEL: Record<AssistantAssessment["stage"], string> = {
+  clarify: "Clarifying",
+  retrieve: "Searching",
+  recommend: "Recommending",
+  act: "Next step",
+};
+
+function AssessmentCard({ assessment, t }: { assessment: AssistantAssessment; t: ReturnType<typeof useTheme>["t"] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() => setOpen((v) => !v)}
+      className={`mb-4 self-start max-w-[92%] rounded-2xl border px-4 py-3 ${t.bgCard} ${t.border}`}
+    >
+      <View className="flex-row items-center">
+        <Ionicons name={open ? "chevron-down" : "chevron-forward"} size={14} color={t.icon} />
+        <Text className={`ml-1 text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>
+          {STAGE_LABEL[assessment.stage]} · {Math.round(assessment.confidence * 100)}% sure
+        </Text>
+      </View>
+      <Text className={`mt-1 text-xs ${t.text}`}>{assessment.next_step}</Text>
+      {open && (
+        <View className="mt-2 border-t pt-2" style={{ borderColor: t.isDarkMode ? "#26334A" : "#E2E8F0" }}>
+          <Text className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Situation</Text>
+          <Text className={`mt-0.5 text-xs ${t.text}`}>{assessment.situation}</Text>
+          {assessment.knows.length > 0 && (
+            <>
+              <Text className={`mt-2 text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>What I know</Text>
+              {assessment.knows.map((line, i) => (
+                <Text key={i} className={`mt-0.5 text-xs ${t.text}`}>• {line}</Text>
+              ))}
+            </>
+          )}
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function SourceChips({ sources, t }: { sources: AssistantSource[]; t: ReturnType<typeof useTheme>["t"] }) {
+  const router = useRouter();
+  if (sources.length === 0) return null;
+  const openSource = (source: AssistantSource) => {
+    if (source.source === "jobs") router.push(`/job/${source.id}` as never);
+    else if (source.source === "marketplace") router.push(`/marketPlace/${source.id}` as never);
+    // rag_documents (scraped, unverified) have no in-app detail route yet
+  };
+  return (
+    <View className="mb-4 flex-row flex-wrap gap-2">
+      {sources.map((source) => (
+        <TouchableOpacity
+          key={source.id}
+          onPress={() => openSource(source)}
+          disabled={source.source !== "jobs" && source.source !== "marketplace"}
+          className={`rounded-full border px-3 py-2 ${t.bgCard} ${t.border}`}
+        >
+          <Text className={`text-[11px] font-bold ${t.text}`}>{source.name}</Text>
+          {!source.verified && (
+            <Text className="text-[9px] font-black uppercase tracking-widest text-amber-500">Unverified · community info</Text>
+          )}
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 export default function AssistantTab() {
   const { t } = useTheme();
   const insets = useSafeAreaInsets();
@@ -76,23 +145,8 @@ export default function AssistantTab() {
     },
   ]);
   const [input, setInput] = useState("");
-  const [loadingContext, setLoadingContext] = useState(true);
   const [sending, setSending] = useState(false);
-  const [context, setContext] = useState<Awaited<ReturnType<typeof loadAssistantContext>> | null>(null);
-
-  const refreshContext = useCallback(async () => {
-    setLoadingContext(true);
-    try {
-      const nextContext = await loadAssistantContext();
-      setContext(nextContext);
-    } finally {
-      setLoadingContext(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshContext();
-  }, [refreshContext]);
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
 
   const sendMessage = useCallback(
     async (preset?: string) => {
@@ -104,10 +158,12 @@ export default function AssistantTab() {
       setSending(true);
 
       try {
-        const liveContext = context ?? (await loadAssistantContext());
-        if (!context) setContext(liveContext);
-        const reply = await getAssistantReply(text, liveContext);
-        setMessages((prev) => [...prev, { id: `${Date.now()}-assistant`, role: "assistant", text: reply }]);
+        const result = await queryAssistant(text, conversationId);
+        setConversationId(result.conversation_id);
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-assistant`, role: "assistant", text: result.reply, assessment: result.assessment, sources: result.sources },
+        ]);
       } catch (err) {
         const reply = humanizeError(err, "The assistant could not answer right now.");
         setMessages((prev) => [...prev, { id: `${Date.now()}-assistant-error`, role: "assistant", text: reply }]);
@@ -115,7 +171,7 @@ export default function AssistantTab() {
         setSending(false);
       }
     },
-    [context, input, sending]
+    [conversationId, input, sending]
   );
 
   const surface = t.isDarkMode ? '#1A2540' : '#F1F5F9';
@@ -146,7 +202,10 @@ export default function AssistantTab() {
           <View className="flex-row gap-2">
             {messages.length > 0 && (
               <TouchableOpacity
-                onPress={() => setMessages([])}
+                onPress={() => {
+                  setMessages([]);
+                  setConversationId(undefined);
+                }}
                 className="h-11 w-11 rounded-2xl items-center justify-center"
                 style={{ backgroundColor: surface, borderWidth: 1, borderColor }}
                 accessibilityLabel="Clear conversation"
@@ -154,23 +213,11 @@ export default function AssistantTab() {
                 <Feather name="trash-2" size={16} color={mutedText} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              onPress={refreshContext}
-              className={`h-11 w-11 rounded-2xl border items-center justify-center ${t.border} ${t.bgCard}`}
-            >
-              <Ionicons name="refresh" size={18} color={t.icon} />
-            </TouchableOpacity>
           </View>
         </View>
       </View>
 
-      {loadingContext ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
-          <Text className={`mt-2 ${t.textMuted}`}>Loading AI context…</Text>
-        </View>
-      ) : (
-        <ScrollView
+      <ScrollView
           ref={scrollRef}
           className="flex-1"
           showsVerticalScrollIndicator={false}
@@ -198,33 +245,39 @@ export default function AssistantTab() {
             ) : null}
 
             {messages.map((message) => (
-              <View
-                key={message.id}
-                className={`mb-4 flex-row ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              <View key={message.id}>
                 <View
-                  className={`max-w-[84%] rounded-[28px] px-4 py-3.5 ${
-                    message.role === "user" ? "bg-blue-600 rounded-tr-md" : `${t.bgCard} border ${t.border} rounded-tl-md`
-                  }`}
+                  className={`mb-1 flex-row ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <Text
-                    className={`text-[10px] font-black uppercase tracking-widest ${
-                      message.role === "user" ? "text-blue-200" : t.textMuted
+                  <View
+                    className={`max-w-[84%] rounded-[28px] px-4 py-3.5 ${
+                      message.role === "user" ? "bg-blue-600 rounded-tr-md" : `${t.bgCard} border ${t.border} rounded-tl-md`
                     }`}
                   >
-                    {message.role === "user" ? "You" : "Kabayan AI"}
-                  </Text>
-                  <Text className={`mt-2 text-sm leading-6 ${message.role === "user" ? "text-white" : t.text}`}>
-                    {message.text}
-                  </Text>
+                    <Text
+                      className={`text-[10px] font-black uppercase tracking-widest ${
+                        message.role === "user" ? "text-blue-200" : t.textMuted
+                      }`}
+                    >
+                      {message.role === "user" ? "You" : "Kabayan AI"}
+                    </Text>
+                    <Text className={`mt-2 text-sm leading-6 ${message.role === "user" ? "text-white" : t.text}`}>
+                      {message.text}
+                    </Text>
+                  </View>
                 </View>
+                {message.assessment && (
+                  <View className="mt-2">
+                    <AssessmentCard assessment={message.assessment} t={t} />
+                  </View>
+                )}
+                {message.sources && message.sources.length > 0 && <SourceChips sources={message.sources} t={t} />}
               </View>
             ))}
 
             {sending && <TypingIndicator surface={surface} mutedText={mutedText} />}
           </View>
         </ScrollView>
-      )}
 
       <View
         className={`border-t px-4 pt-3 ${t.border} ${t.bgPage}`}

@@ -12,6 +12,7 @@ import conversationsRouter from "./routes/conversations.js";
 import profilesRouter from "./routes/profiles.js";
 import peopleRouter from "./routes/people.js";
 import miscRouter from "./routes/misc.js";
+import assistantRouter from "./routes/assistant.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -29,6 +30,7 @@ app.use("/api/conversations", conversationsRouter);
 app.use("/api/profiles", profilesRouter);
 app.use("/api/people", peopleRouter);
 app.use("/api", miscRouter);
+app.use("/api/assistant", assistantRouter);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

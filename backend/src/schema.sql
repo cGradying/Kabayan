@@ -134,3 +134,46 @@ CREATE TABLE IF NOT EXISTS user_blocks (
   blocked_user_id text NOT NULL,
   PRIMARY KEY (blocker_id, blocked_user_id)
 );
+
+-- Ladderized assistant: the accumulated per-conversation state IS the memory,
+-- there is no separate message log to replay.
+CREATE TABLE IF NOT EXISTS assistant_conversations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  state jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ponytail: embedding stored as double precision[] + JS cosine similarity
+-- (backend/src/retrieval.js) instead of pgvector, because pgvector has no
+-- bottle for local Postgres 16 and this corpus is one city's vendors at a
+-- time. Upgrade to a real `vector` column + <=> operator (Render's managed
+-- Postgres supports the extension) once a city's row count makes a full
+-- scan slow.
+CREATE TABLE IF NOT EXISTS rag_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source text NOT NULL,             -- 'overpass' | 'facebook' | 'manual'
+  source_id text NOT NULL,
+  city text NOT NULL,               -- 'manila' | 'quezon_city' | 'antipolo'
+  doc_type text NOT NULL DEFAULT 'vendor',
+  name text,
+  store_name text,
+  category text,
+  price_text text,
+  price_min numeric,
+  price_max numeric,
+  location_label text,
+  latitude double precision,
+  longitude double precision,
+  url text,
+  content text NOT NULL,            -- the text that gets embedded
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  embedding double precision[],
+  embedding_model text NOT NULL,
+  verified boolean NOT NULL DEFAULT false,
+  scraped_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (source, source_id)
+);
+CREATE INDEX IF NOT EXISTS rag_documents_city_idx ON rag_documents (city, category);
