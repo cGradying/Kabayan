@@ -18,6 +18,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.kabayan",
       config: {
         googleMapsApiKey: GOOGLE_MAPS_KEY,
       },
@@ -101,6 +102,13 @@ module.exports = {
       ],
       "expo-font",
       "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          // @react-native-ml-kit/text-recognition requires iOS >= 15.5
+          ios: { deploymentTarget: "15.5" },
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
