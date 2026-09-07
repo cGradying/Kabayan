@@ -182,7 +182,7 @@ async function queryLiveRows(intent, slots) {
     if (slots.budget_max) { params.push(slots.budget_max); clauses.push(`budget_min <= $${params.length}`); }
     const where = ["status = 'open'", ...clauses].join(" AND ");
     const { rows } = await query(
-      `SELECT id, title AS name, description AS content, location_label, budget_min, budget_max, is_urgent, 'jobs' AS source, true AS verified
+      `SELECT id, title AS name, description AS content, location_label, latitude, longitude, budget_min, budget_max, is_urgent, 'jobs' AS source, true AS verified
        FROM jobs WHERE ${where} ORDER BY is_urgent DESC, created_at DESC LIMIT 8`,
       params
     );
@@ -198,7 +198,7 @@ async function queryLiveRows(intent, slots) {
   if (slots.budget_max) { params.push(slots.budget_max); clauses.push(`price <= $${params.length}`); }
   const where = ["is_open = true", ...clauses].join(" AND ");
   const { rows } = await query(
-    `SELECT id, name, store_name, description AS content, category, price, location_label, 'marketplace' AS source, true AS verified
+    `SELECT id, name, store_name, description AS content, category, price, location_label, latitude, longitude, 'marketplace' AS source, true AS verified
      FROM marketplace_listings WHERE ${where} ORDER BY created_at DESC LIMIT 8`,
     params
   );
@@ -207,9 +207,9 @@ async function queryLiveRows(intent, slots) {
 
 async function sourcesById(ids) {
   if (ids.length === 0) return [];
-  const { rows: jobs } = await query("SELECT id, title AS name, location_label, 'jobs' AS source, true AS verified FROM jobs WHERE id = ANY($1)", [ids]);
-  const { rows: listings } = await query("SELECT id, name, store_name, location_label, 'marketplace' AS source, true AS verified FROM marketplace_listings WHERE id = ANY($1)", [ids]);
-  const { rows: rag } = await query("SELECT id, name, store_name, location_label, source, verified FROM rag_documents WHERE id = ANY($1)", [ids]);
+  const { rows: jobs } = await query("SELECT id, title AS name, location_label, latitude, longitude, 'jobs' AS source, true AS verified FROM jobs WHERE id = ANY($1)", [ids]);
+  const { rows: listings } = await query("SELECT id, name, store_name, location_label, latitude, longitude, 'marketplace' AS source, true AS verified FROM marketplace_listings WHERE id = ANY($1)", [ids]);
+  const { rows: rag } = await query("SELECT id, name, store_name, location_label, latitude, longitude, source, verified FROM rag_documents WHERE id = ANY($1)", [ids]);
   return [...jobs, ...listings, ...rag];
 }
 
@@ -293,6 +293,8 @@ function toClientSource(row) {
     name: row.name,
     store_name: row.store_name ?? null,
     location_label: row.location_label ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
     price: row.price ?? row.budget_max ?? null,
     source: row.source,
     verified: row.verified !== false,

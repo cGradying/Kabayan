@@ -109,9 +109,21 @@ function SourceChips({ sources, t }: { sources: AssistantSource[]; t: ReturnType
   const router = useRouter();
   if (sources.length === 0) return null;
   const openSource = (source: AssistantSource) => {
-    if (source.source === "jobs") router.push(`/job/${source.id}` as never);
-    else if (source.source === "marketplace") router.push(`/marketPlace/${source.id}` as never);
-    // rag_documents (scraped, unverified) have no in-app detail route yet
+    // A chip with coordinates always shows where it is — verified or not,
+    // this is the only detail route scraped/unverified vendors have.
+    if (source.latitude != null && source.longitude != null) {
+      router.push({
+        pathname: "/map/mapView",
+        params: {
+          latitude: String(source.latitude),
+          longitude: String(source.longitude),
+          location: source.location_label ?? source.name,
+        },
+      });
+      return;
+    }
+    if (source.source === "jobs") router.push({ pathname: "/job/JobView", params: { jobId: source.id } });
+    else if (source.source === "marketplace") router.push({ pathname: "/marketPlace/marketPlaceView", params: { id: source.id } });
   };
   return (
     <View className="mb-4 flex-row flex-wrap gap-2">
@@ -119,10 +131,12 @@ function SourceChips({ sources, t }: { sources: AssistantSource[]; t: ReturnType
         <TouchableOpacity
           key={source.id}
           onPress={() => openSource(source)}
-          disabled={source.source !== "jobs" && source.source !== "marketplace"}
           className={`rounded-full border px-3 py-2 ${t.bgCard} ${t.border}`}
         >
           <Text className={`text-[11px] font-bold ${t.text}`}>{source.name}</Text>
+          {source.location_label && (
+            <Text className={`text-[10px] ${t.textMuted}`}>{source.location_label}</Text>
+          )}
           {!source.verified && (
             <Text className="text-[9px] font-black uppercase tracking-widest text-amber-500">Unverified · community info</Text>
           )}
@@ -266,7 +280,7 @@ export default function AssistantTab() {
                     </Text>
                   </View>
                 </View>
-                {message.assessment && (
+                {__DEV__ && message.assessment && (
                   <View className="mt-2">
                     <AssessmentCard assessment={message.assessment} t={t} />
                   </View>

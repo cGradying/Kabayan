@@ -5,6 +5,8 @@ export type AssistantSource = {
   name: string;
   store_name: string | null;
   location_label: string | null;
+  latitude: number | null;
+  longitude: number | null;
   price: number | string | null;
   source: string;
   verified: boolean;
