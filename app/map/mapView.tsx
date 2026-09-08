@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { geocodeAddress } from "@/utils/googleGeocode";
 import { api } from "@/utils/api";
+import { useTheme } from "@/hooks/useTheme";
 
 const DEFAULT_COORDINATE: [number, number] = [120.9842, 14.5995];
 
@@ -22,6 +23,7 @@ const toFiniteNumber = (value?: string) => {
 export default function CustomMapView() {
   const inset = useSafeAreaInsets();
   const router = useRouter();
+  const { t } = useTheme();
   const params = useLocalSearchParams<{
     location?: string | string[];
     latitude?: string | string[];
@@ -144,20 +146,20 @@ export default function CustomMapView() {
   }, [currentLabel]);
 
   return (
-    <View className="flex flex-1" style={{ paddingBottom: inset.bottom, paddingTop: inset.top }}>
+    <View className={`flex flex-1 ${t.bgPage}`} style={{ paddingBottom: inset.bottom, paddingTop: inset.top }}>
       {resolving && (
-        <View 
-          className="absolute z-50 top-20 self-center bg-white/95 rounded-2xl px-4 py-2 border border-slate-200 flex-row items-center shadow-sm"
+        <View
+          className={`absolute z-50 top-20 self-center rounded-2xl px-4 py-2 border flex-row items-center shadow-sm ${t.bgCard} ${t.border}`}
           style={{ elevation: 10 }}
         >
-          <ActivityIndicator size="small" color="#2563EB" />
-          <Text className="ml-2 text-xs font-semibold text-slate-700">Locating {markerLabel}…</Text>
+          <ActivityIndicator size="small" color={t.accent} />
+          <Text className={`ml-2 text-xs font-semibold ${t.text}`}>Locating {markerLabel}…</Text>
         </View>
       )}
 
-      <CustomMapViewComponent 
-        markerCoordinate={targetCoordinate} 
-        markerLabel={markerLabel} 
+      <CustomMapViewComponent
+        markerCoordinate={targetCoordinate}
+        markerLabel={markerLabel}
         onLocationSelected={handleLocationSelected}
         mapPoints={mapPoints}
         selectedPointId={selectedPointId}

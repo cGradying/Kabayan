@@ -645,7 +645,7 @@ export default function MarketPlaceView() {
         <KeyboardAvoidingView
           className="flex-1 justify-end"
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 12 : 0}
+          keyboardVerticalOffset={0}
         >
           <View className="flex-1 bg-black/50 justify-end">
             <ScrollView
@@ -774,7 +774,7 @@ export default function MarketPlaceView() {
         <KeyboardAvoidingView
           className="flex-1 justify-end"
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 12 : 0}
+          keyboardVerticalOffset={0}
         >
           <View className="flex-1 bg-black/50 justify-end">
             <ScrollView

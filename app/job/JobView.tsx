@@ -206,13 +206,21 @@ export default function JobView() {
                 <Feather name="map-pin" size={12} color={t.accent} style={{ marginLeft: 6 }} />
               </View>
             </TouchableOpacity>
-            <View className={`flex-1 rounded-[20px] border p-4 ${t.border} ${t.bgCard}`}>
+            <TouchableOpacity
+              onPress={() =>
+                isOwner
+                  ? router.push({ pathname: "/profile/JobApplicants", params: { jobId: job.id } })
+                  : handleOpenConversation()
+              }
+              disabled={!isOwner && openingChat}
+              className={`flex-1 rounded-[20px] border p-4 ${t.border} ${t.bgCard}`}
+            >
               <Text className={`text-[10px] font-bold uppercase tracking-wide ${t.textMuted}`}>Chat</Text>
               <View className="mt-1 flex-row items-center">
                 <Text className={`text-sm font-extrabold ${t.text}`}>{isOwner ? "Applicants" : "Employer"}</Text>
                 <Feather name="message-circle" size={12} color={t.accent} style={{ marginLeft: 6 }} />
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View className="mt-8">

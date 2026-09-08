@@ -74,12 +74,12 @@ export default function Home() {
   return (
     <View className={`flex-1 ${t.bgPage}`}>
       <View className="pt-4 px-[5%]">
-        <View className={`flex-row items-center h-12 px-4 rounded-2xl border ${t.border} bg-gray-200`}
+        <View className={`flex-row items-center h-12 px-4 rounded-2xl border ${t.border} ${t.bgSurface}`}
           style={{ elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } }}
         >
           <Pressable onPress={() => router.push("/search/search")} className="flex-1 h-full flex-row items-center" accessibilityLabel="Search" accessibilityRole="button">
             <Feather name="search" color={t.icon} size={16} />
-            <Text className={`ml-3 text-sm font-medium `}>Search jobs, vendors, people…</Text>
+            <Text className={`ml-3 text-sm font-medium ${t.textMuted}`}>Search jobs, vendors, people…</Text>
           </Pressable>
 
           <View style={{ width: 1, height: 24, marginHorizontal: 12, backgroundColor: t.isDarkMode ? '#1E293B' : '#E2E8F0' }} />

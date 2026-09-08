@@ -126,7 +126,7 @@ export default function PeopleConnect() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      keyboardVerticalOffset={0}
       className={`flex-1 ${t.bgPage}`}
     >
       <View className={`px-6 pb-4 border-b ${t.border} ${t.bgCard}`} style={{ paddingTop: insets.top + 12 }}>

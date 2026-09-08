@@ -38,7 +38,8 @@ export async function setStoredUser(user: unknown) {
 async function request<T>(
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  signal?: AbortSignal
 ): Promise<T> {
   const token = await getToken();
   const headers: Record<string, string> = {};
@@ -49,6 +50,7 @@ async function request<T>(
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   if (!res.ok) {
@@ -60,11 +62,11 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>("GET", path),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
-  put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
-  patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
-  delete: <T>(path: string) => request<T>("DELETE", path),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>("GET", path, undefined, signal),
+  post: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>("POST", path, body, signal),
+  put: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>("PUT", path, body, signal),
+  patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>("PATCH", path, body, signal),
+  delete: <T>(path: string, signal?: AbortSignal) => request<T>("DELETE", path, undefined, signal),
 };
 
 export async function signIn(email: string, password: string) {

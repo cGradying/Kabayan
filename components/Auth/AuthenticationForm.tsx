@@ -14,7 +14,6 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import useAccount from "@/hooks/useAccountHooks";
 import { getStoredUser } from "@/utils/api";
 import humanizeError from "@/utils/humanizeError";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type AuthMode = "signIn" | "signUp";
 
@@ -29,7 +28,6 @@ export default function AuthenticationForm({
   onModeChange,
   onSubmitted,
 }: AuthenticationFormProps) {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { SignUpWithEmailAndPassword, SignInWithPassword, error } = useAccount();
 
@@ -85,7 +83,7 @@ export default function AuthenticationForm({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 12 : 0}
+      keyboardVerticalOffset={0}
       className="flex-1"
     >
       <ScrollView

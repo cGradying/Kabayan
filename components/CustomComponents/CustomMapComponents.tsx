@@ -4,8 +4,26 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { GOOGLE_MAPS_KEY, hasGoogleMapsKey } from "@/utils/googleMapsConfig";
+import { useTheme } from "@/hooks/useTheme";
 
-const DEFAULT_COORDINATE: [number, number] = [120.9842, 14.5995]; 
+const DEFAULT_COORDINATE: [number, number] = [120.9842, 14.5995];
+
+// Standard Google Maps "night mode" style — keeps water/roads/labels legible against the
+// app's dark navy chrome instead of a jarring bright-white map floating in a dark screen.
+const DARK_MAP_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#1a2540" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0b1120" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] },
+  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#64748b" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#26334a" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#1a2540" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#334155" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0b1120" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#475569" }] },
+];
 
 type CustomMapComponentsProps = {
   markerCoordinate?: [number, number] | null;
@@ -39,10 +57,17 @@ export default function CustomMapComponents({
   onPrimaryAction,
   mode = "full",
 }: CustomMapComponentsProps) {
+  const { t } = useTheme();
   const mapRef = useRef<MapView>(null);
   const autocompleteRef = useRef<GooglePlacesAutocomplete>(null);
   const [ready, setReady] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  const overlayBg = t.isDarkMode ? 'rgba(20,28,46,0.97)' : 'rgba(255,255,255,0.98)';
+  const overlayText = t.isDarkMode ? '#F0F4FF' : '#0F172A';
+  const overlayMuted = t.isDarkMode ? '#94A3B8' : '#64748B';
+  const overlayIcon = t.isDarkMode ? '#94A3B8' : '#334155';
+  const overlayChipBg = t.isDarkMode ? '#1D3461' : '#DBEAFE';
 
   const [lng, lat] = markerCoordinate ?? DEFAULT_COORDINATE;
 
@@ -76,7 +101,7 @@ export default function CustomMapComponents({
   }, [markerLabel]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: t.isDarkMode ? '#0B1120' : '#f3f4f6' }]}>
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -88,6 +113,7 @@ export default function CustomMapComponents({
         showsCompass={true}
         toolbarEnabled={false}
         mapType="standard"
+        customMapStyle={t.isDarkMode ? DARK_MAP_STYLE : undefined}
       >
         {mapPoints.map((point) => (
           <Marker
@@ -110,7 +136,7 @@ export default function CustomMapComponents({
 
       {mode === "full" ? (
         <View pointerEvents="box-none" style={styles.searchWrapper}>
-          <View style={styles.topBar}>
+          <View style={[styles.topBar, { backgroundColor: overlayBg }]}>
             <TouchableOpacity
               style={styles.leadingSearchIcon}
               onPress={() => {
@@ -119,7 +145,7 @@ export default function CustomMapComponents({
               }}
               activeOpacity={0.9}
             >
-              <Feather name="search" size={18} color="#334155" />
+              <Feather name="search" size={18} color={overlayIcon} />
             </TouchableOpacity>
             {hasGoogleMapsKey ? (
               <GooglePlacesAutocomplete
@@ -157,36 +183,37 @@ export default function CustomMapComponents({
                 }}
                 styles={{
                   container: styles.autocompleteContainer,
-                  textInput: styles.searchText,
-                  listView: styles.listView,
+                  textInput: [styles.searchText, { color: overlayText }],
+                  listView: [styles.listView, { backgroundColor: overlayBg }],
                   row: styles.listRow,
-                  description: styles.listDescription,
+                  description: [styles.listDescription, { color: overlayText }],
                 }}
                 textInputProps={{
                   autoCorrect: false,
                   clearButtonMode: "while-editing",
                   onFocus: () => setSearchError(null),
+                  placeholderTextColor: overlayMuted,
                 }}
                 enablePoweredByContainer={false}
               />
             ) : (
-              <View style={styles.missingKeyBanner}>
+              <View style={[styles.missingKeyBanner, { backgroundColor: overlayBg }]}>
                 <Text style={styles.missingKeyText}>Location search is unavailable because the Google Maps API key is missing.</Text>
               </View>
             )}
           </View>
 
           {searchError ? (
-            <View style={styles.errorBanner}>
+            <View style={[styles.errorBanner, { backgroundColor: overlayBg }]}>
               <Text style={styles.errorText}>{searchError}</Text>
             </View>
           ) : null}
         </View>
       ) : (
         <View pointerEvents="none" style={styles.previewOverlay}>
-          <View style={styles.previewChip}>
-            <MaterialIcons name="place" size={14} color="#2563EB" />
-            <Text style={styles.previewChipText} numberOfLines={1}>
+          <View style={[styles.previewChip, { backgroundColor: overlayBg }]}>
+            <MaterialIcons name="place" size={14} color={t.accent} />
+            <Text style={[styles.previewChipText, { color: overlayText }]} numberOfLines={1}>
               {resolvedLabel}
             </Text>
           </View>
@@ -197,30 +224,30 @@ export default function CustomMapComponents({
         <>
           <View pointerEvents="box-none" style={styles.actionsWrap}>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: overlayBg }]}
               activeOpacity={0.9}
               onPress={() => {
                 mapRef.current?.animateToRegion(region, 700);
                 setSearchError(null);
               }}
             >
-              <Feather name="crosshair" size={18} color="#0F172A" />
+              <Feather name="crosshair" size={18} color={overlayText} />
             </TouchableOpacity>
           </View>
 
           <View pointerEvents="box-none" style={styles.bottomSheetWrap}>
-            <View style={styles.bottomSheet}>
+            <View style={[styles.bottomSheet, { backgroundColor: overlayBg }]}>
               <View style={styles.bottomSheetHandle} />
               <View style={styles.bottomSheetRow}>
-                <View style={styles.bottomSheetIcon}>
-                  <MaterialIcons name="place" size={18} color="#2563EB" />
+                <View style={[styles.bottomSheetIcon, { backgroundColor: overlayChipBg }]}>
+                  <MaterialIcons name="place" size={18} color={t.accent} />
                 </View>
                 <View style={styles.bottomSheetTextWrap}>
-                  <Text style={styles.bottomSheetEyebrow}>Selected location</Text>
-                  <Text style={styles.bottomSheetTitle} numberOfLines={2}>
+                  <Text style={[styles.bottomSheetEyebrow, { color: overlayMuted }]}>Selected location</Text>
+                  <Text style={[styles.bottomSheetTitle, { color: overlayText }]} numberOfLines={2}>
                     {selectedPoint?.title ?? resolvedLabel}
                   </Text>
-                  <Text style={styles.bottomSheetCaption}>
+                  <Text style={[styles.bottomSheetCaption, { color: overlayMuted }]}>
                     {selectedPoint
                       ? `${selectedPoint.kind === "job" ? "Job" : "Store item"} • ${selectedPoint.subtitle ?? selectedPoint.locationLabel}`
                       : "Search above to change the pin and map focus."}

@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { View, Text, TouchableOpacity, Image, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, Image, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { LegendList } from "@legendapp/list";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTheme } from "@/hooks/useTheme";
 import { api, getStoredUser } from "@/utils/api";
 import CustomModal from "@/components/CustomComponents/CustomModalComponent";
-import { KeyboardAvoidingView, Platform } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
 
 type Conversation = {
   roomId: string;
@@ -23,7 +22,7 @@ type Conversation = {
 
 export default function Inbox() {
   const { t } = useTheme();
-  const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [threads, setThreads] = useState<Conversation[]>([]);
@@ -101,7 +100,7 @@ export default function Inbox() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
       className={`flex-1 ${t.bgPage}`}
     >
       <View className={`pb-6 px-6 ${t.bgCard} border-b ${t.border}`} style={{ paddingTop: 12 }}>

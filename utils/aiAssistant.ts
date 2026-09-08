@@ -27,9 +27,13 @@ export type AssistantQueryResult = {
   sources: AssistantSource[];
 };
 
-export async function queryAssistant(message: string, conversationId?: string): Promise<AssistantQueryResult> {
-  return api.post<AssistantQueryResult>("/api/assistant/query", {
-    message,
-    ...(conversationId ? { conversation_id: conversationId } : {}),
-  });
+export async function queryAssistant(message: string, conversationId?: string, signal?: AbortSignal): Promise<AssistantQueryResult> {
+  return api.post<AssistantQueryResult>(
+    "/api/assistant/query",
+    {
+      message,
+      ...(conversationId ? { conversation_id: conversationId } : {}),
+    },
+    signal
+  );
 }

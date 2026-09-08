@@ -101,7 +101,7 @@ export default function ChatRoomLayout() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 18 : 12}
+      keyboardVerticalOffset={0}
       style={{ flex: 1 }}
       className={`flex-1 ${t.bgPage}`}
     >
@@ -215,7 +215,12 @@ export default function ChatRoomLayout() {
           {message.length > 0 && (
             <TouchableOpacity
               onPress={handleSend}
-              className="ml-2 bg-blue-600 w-8 h-8 rounded-full items-center justify-center shadow-sm"
+              disabled={sending}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              className={`ml-2 w-10 h-10 rounded-full items-center justify-center shadow-sm ${t.brandBg}`}
+              style={sending ? { opacity: 0.6 } : undefined}
             >
               <Ionicons name="arrow-up" size={18} color="white" />
             </TouchableOpacity>

@@ -173,7 +173,7 @@ export default function Register() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 18 : 12}
+      keyboardVerticalOffset={0}
       style={{ flex: 1 }}
       className={`flex-1 ${t.bgPage}`}
     >
