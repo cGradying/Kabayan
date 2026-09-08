@@ -84,6 +84,8 @@ export default function TabsLayout() {
         options={{
           title: "Kabayan AI",
           tabBarLabel: "AI",
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
           tabBarButton: (props) => (
             <Pressable
               {...props}
